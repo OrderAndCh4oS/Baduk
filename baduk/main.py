@@ -18,12 +18,14 @@ class GroupLink:
     def set_group(self, group):
         self.group = group
 
-    def find_adjacent(self, board):
-        adjacent_links = self.point.filter_adjacent_links(
+    def set_stone(self, stone):
+        self.stone = stone
+
+    def get_adjacent_stones(self, board):
+        return self.point.filter_adjacent_links(
             lambda adjacent_link: self.stone == adjacent_link.stone,
             board
         )
-        print([str(link) for link in adjacent_links])
 
     def find_liberties(self, links, liberties, board):
         for adjacent_point in self.point.adjacent_points():
@@ -41,19 +43,40 @@ class GroupLink:
 
 class Group:
     def __init__(self, link: GroupLink):
-        self.first_link = link
-        self.liberties = set()
         self.links = set()
+        self.liberties = set()
+        link.set_group(self)
+        self.first_link = link
         self.links.add(link)
 
     def __repr__(self):
-        return 'Stone Coordinates: %s, Liberties %d' % (
+        return 'Stone Coordinates: %s | Liberties %d' % (
         (', '.join([str(link) for link in self.links])), len(self.liberties))
 
-    def get_links(self, board):
-        self.first_link.find_liberties(self.links, self.liberties, board)
-        return self.liberties
+    def add_link(self, link):
+        link.set_group(self)
+        self.first_link = link
+        self.links.add(link)
 
+    def get_liberties(self, board):
+        self.links = set()
+        self.liberties = set()
+        self.first_link.find_liberties(self.links, self.liberties, board)
+        return len(self.liberties)
+
+    def combine(self, group):
+        self.links = group.links | self.links
+        self.liberties = group.liberties | self.liberties
+        for link in self.links:
+            link.set_group(self)
+
+    def count_stones(self):
+        return len(self.links)
+
+    def remove_stones(self):
+        for link in self.links:
+            link.set_stone(Stone.NONE)
+            link.set_group(None)
 
 class Board:
     groups = []
@@ -83,11 +106,50 @@ class Board:
     def place_stone(self, point: Point, stone: Stone):
         group_link = self.get_point(point.x, point.y)
         group_link.stone = stone
-        print(group_link.find_adjacent(self))
-        group = Group(group_link)
-        links = group.get_links(self)
-        print(group)
+        self.update_groups(group_link)
 
+    def update_groups(self, group_link):
+        adjacent_stones = group_link.get_adjacent_stones(self)
+        if len(list(adjacent_stones)) > 1:
+            group = self.combine_groups_adjacent_to_link(adjacent_stones, group_link)
+        elif len(list(adjacent_stones)) == 1:
+            group = self.add_link_adjacent_group(adjacent_stones, group_link)
+        else:
+            group = self.create_new_group(group_link)
+        group.get_liberties(self)
+        print([str(group) for group in self.groups])
+
+    def create_new_group(self, group_link):
+        group = Group(group_link)
+        self.groups.append(group)
+        return group
+
+    def add_link_adjacent_group(self, adjacent_stones, group_link):
+        adjacent_stone = adjacent_stones[0]
+        group = adjacent_stone.group
+        group.add_link(group_link)
+        return group
+
+    def combine_groups_adjacent_to_link(self, adjacent_stones, group_link):
+        group = Group(group_link)
+        for adjacent_stone in adjacent_stones:
+            self.groups.remove(adjacent_stone.group)
+            group.combine(adjacent_stone.group)
+            del adjacent_stone.group
+            self.groups.append(group)
+        return group
+
+    def count_dead_stones(self):
+        dead_stones = 0
+        for group in self.groups:
+            liberties = group.get_liberties(self)
+            print(liberties)
+            if liberties == 0:
+                dead_stones = group.count_stones()
+                group.remove_stones()
+                self.groups.remove(group)
+                break
+        return dead_stones
 
 class Baduk:
 
@@ -100,9 +162,11 @@ class Baduk:
         self._board.draw()
 
     def move(self, coordinate):
+        current_player =  self.players[self.turn.current_player()]
         point = Point(coordinate=coordinate)
-        stone = self.players[self.turn.current_player()].get_stone()
+        stone = current_player.get_stone()
         self._board.place_stone(point, stone)
+        current_player.update_killed_stone_count(self._board.count_dead_stones())
         self.turn.next_turn()
 
 
@@ -115,11 +179,23 @@ if __name__ == '__main__':
     assert point.x == 8 and point.y == 8
     baduk.move('4D')
     baduk.board()
-    baduk.move('4C')
-    baduk.board()
-    baduk.move('3C')
-    baduk.board()
-    baduk.move('4B')
-    baduk.board()
     baduk.move('5D')
+    baduk.board()
+    baduk.move('5E')
+    baduk.board()
+    baduk.move('1A')
+    baduk.board()
+    baduk.move('5C')
+    baduk.board()
+    baduk.move('6D')
+    baduk.board()
+    baduk.move('7D')
+    baduk.board()
+    baduk.move('2A')
+    baduk.board()
+    baduk.move('6C')
+    baduk.board()
+    baduk.move('3A')
+    baduk.board()
+    baduk.move('6E')
     baduk.board()
