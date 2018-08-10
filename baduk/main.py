@@ -83,12 +83,12 @@ class Group:
 class Board:
     groups = []
 
-    def __init__(self, size: int):
+    def __init__(self, size: tuple):
         self.size = size
         self.board = self.make_board()
 
     def __repr__(self):
-        alpha_row = ' '.join([ALPHA_KEY[i] for i in range(self.size)])
+        alpha_row = ' '.join([ALPHA_KEY[i] for i in range(self.size[0])])
         rows = '\n'.join(['%s %s' % (i + 1, row) for i, row in
                           enumerate(map(lambda x: ' '.join(map(lambda y: str(y.stone), x)), self.board))])
         return '  %s\n%s' % (alpha_row, rows)
@@ -103,10 +103,10 @@ class Board:
         print(self)
 
     def in_grid(self, point):
-        return point['x'] in range(self.size) and point['y'] in range(self.size)
+        return point['x'] in range(self.size[0]) and point['y'] in range(self.size[1])
 
     def place_stone(self, point: Point, stone: Stone):
-        if point.x < 0 or point.x > self.size - 1 or point.y > self.size - 1 or point.y < 0:
+        if point.x < 0 or point.x > self.size[0] - 1 or point.y > self.size[1] - 1 or point.y < 0:
             raise ValidationError('Stone placed out of bounds')
         group_link = self.get_point(point.x, point.y)
         if group_link.stone is not Stone.NONE:
@@ -165,15 +165,19 @@ class Board:
         self.board = self.make_board()
 
     def make_board(self):
-        return [[GroupLink(Point(x, y), Stone.NONE) for x in range(self.size)] for y in range(self.size)]
+        return [[GroupLink(Point(x, y), Stone.NONE) for x in range(self.size[0])] for y in range(self.size[1])]
 
 
 class Baduk:
     passes = 0
 
-    def __init__(self, size: int):
-        if size > 25:
+    def __init__(self, size: int, height: int = None):
+        if size > 25 or height is not None and height > 25:
             raise ValidationError('Board must be less than 25 x 25')
+        if height is not None:
+            size = (size, height)
+        else:
+            size = (size, size)
         self._board = Board(size)
         self.size = size
         self.turn = Turn()
@@ -185,16 +189,20 @@ class Baduk:
     def move(self, *coordinates):
         for coordinate in coordinates:
             self.passes = 0
-            current_player = self.players[self.turn.current_player()]
+            current_player = self.get_current_player()
             point = Point(coordinate=coordinate)
             stone = current_player.get_stone()
-            valid_move = False
-            while not valid_move:
-                valid_move = self._board.place_stone(point, stone)
+            self.make_move(point, stone)
             current_player.update_killed_stone_count(self._board.count_dead_stones())
             self.turn.next_turn()
-            print([str(group) for group in self._board.groups])
-            self.board()
+
+    def make_move(self, point, stone):
+        valid_move = False
+        while not valid_move:
+            valid_move = self._board.place_stone(point, stone)
+
+    def get_current_player(self):
+        return self.players[self.turn.current_player()]
 
     def get_position(self, coordinate):
         point = Point(coordinate=coordinate)
@@ -233,3 +241,4 @@ if __name__ == '__main__':
     game.move(*moves)
     for capture in captured:
         assert game.get_position(capture) == '.'
+    game.board()
