@@ -120,7 +120,7 @@ class Board:
             raise ValidationError('Stone cannot be placed on another stone')
         group_link.stone = stone
         group = self.update_groups(group_link)
-        self.find_dead_stones()
+        self.find_dead_stones(group)
         if self.dead_stones is None and group.get_liberties() == 0:
             group_link.stone = Stone.NONE
             return False
@@ -164,10 +164,11 @@ class Board:
             self.dead_stones.remove_stones()
             self.groups.remove(self.dead_stones)
 
-    def find_dead_stones(self):
+    def find_dead_stones(self, current_group):
         for group in self.groups:
             group.update(self)
-            if group.get_liberties() == 0:
+            # Todo: for class instance comparison classes should implement __hash__ and/or __eq__
+            if group.get_liberties() == 0 and str(group) != str(current_group):
                 self.dead_stones = group
                 break
 
@@ -206,6 +207,7 @@ class Baduk:
             current_player = self.get_current_player()
             point = Point(coordinate=coordinate)
             stone = current_player.get_stone()
+            print(point, stone)
             self._board.place_stone(point, stone)
             current_player.update_killed_stone_count(self._board.get_dead_stones_count())
             self.turn.next_turn()
@@ -268,3 +270,12 @@ if __name__ == '__main__':
     for capture in captured:
         assert game.get_position(capture) == '.'
     game.board()
+    # game.reset()
+    # small_game = Baduk(5)
+    # moves = ["5A", "1E", "5B", "2D", "5C", "2C", "3A",
+    #          "1C", "2A", "3D", "2B", "3E", "4D", "4B",
+    #          "4E", "4A", "3C", "3B", "1A", "4C", "3C"]
+    # captured = ["4A", "4B", "4C", "3B"]
+    # small_game.move(*moves)
+    # for capture in captured:
+    #     assert small_game.get_position(capture) == '.'
