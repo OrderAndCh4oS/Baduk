@@ -14,3 +14,6 @@ class Turn:
 
     def __str__(self):
         return 'Turn %d' % self.turn
+
+    def reset(self):
+        self.turn = 1

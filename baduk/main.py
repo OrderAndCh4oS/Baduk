@@ -1,5 +1,6 @@
 from baduk.constants import ALPHA_KEY
 from baduk.enums import Stone
+from baduk.exceptions import ValidationError
 from baduk.player import Player
 from baduk.point import Point
 from baduk.turn import Turn
@@ -50,8 +51,8 @@ class Group:
         self.links.add(link)
 
     def __repr__(self):
-        return 'Stone Coordinates: %s | Liberties %d' % (
-        (', '.join([str(link) for link in self.links])), len(self.liberties))
+        return 'Key: %s | Liberties %d' % (
+            (', '.join([str(link) for link in self.links])), len(self.liberties))
 
     def add_link(self, link):
         link.set_group(self)
@@ -59,7 +60,7 @@ class Group:
         self.links.add(link)
 
     def get_liberties(self, board):
-        self.links = set()
+        self.links = {self.first_link}
         self.liberties = set()
         self.first_link.find_liberties(self.links, self.liberties, board)
         return len(self.liberties)
@@ -78,12 +79,13 @@ class Group:
             link.set_stone(Stone.NONE)
             link.set_group(None)
 
+
 class Board:
     groups = []
 
     def __init__(self, size: int):
         self.size = size
-        self.board = [[GroupLink(Point(x, y), Stone.NONE) for x in range(size)] for y in range(size)]
+        self.board = self.make_board()
 
     def __repr__(self):
         alpha_row = ' '.join([ALPHA_KEY[i] for i in range(self.size)])
@@ -104,9 +106,18 @@ class Board:
         return point['x'] in range(self.size) and point['y'] in range(self.size)
 
     def place_stone(self, point: Point, stone: Stone):
+        if point.x < 0 or point.x > self.size - 1 or point.y > self.size - 1 or point.y < 0:
+            raise ValidationError('Stone placed out of bounds')
         group_link = self.get_point(point.x, point.y)
+        if group_link.stone is not Stone.NONE:
+            raise ValidationError('Stone cannot be placed on another stone')
         group_link.stone = stone
-        self.update_groups(group_link)
+        group = self.update_groups(group_link)
+        liberties = group.get_liberties(self)
+        if liberties == 0:
+            return False
+        else:
+            return True
 
     def update_groups(self, group_link):
         adjacent_stones = group_link.get_adjacent_stones(self)
@@ -117,7 +128,7 @@ class Board:
         else:
             group = self.create_new_group(group_link)
         group.get_liberties(self)
-        print([str(group) for group in self.groups])
+        return group
 
     def create_new_group(self, group_link):
         group = Group(group_link)
@@ -143,7 +154,6 @@ class Board:
         dead_stones = 0
         for group in self.groups:
             liberties = group.get_liberties(self)
-            print(liberties)
             if liberties == 0:
                 dead_stones = group.count_stones()
                 group.remove_stones()
@@ -151,51 +161,75 @@ class Board:
                 break
         return dead_stones
 
+    def reset(self):
+        self.board = self.make_board()
+
+    def make_board(self):
+        return [[GroupLink(Point(x, y), Stone.NONE) for x in range(self.size)] for y in range(self.size)]
+
+
 class Baduk:
+    passes = 0
 
     def __init__(self, size: int):
+        if size > 25:
+            raise ValidationError('Board must be less than 25 x 25')
         self._board = Board(size)
+        self.size = size
         self.turn = Turn()
         self.players = (Player('Black', Stone.BLACK), Player('White', Stone.WHITE))
 
     def board(self):
         self._board.draw()
 
-    def move(self, coordinate):
-        current_player =  self.players[self.turn.current_player()]
+    def move(self, *coordinates):
+        for coordinate in coordinates:
+            self.passes = 0
+            current_player = self.players[self.turn.current_player()]
+            point = Point(coordinate=coordinate)
+            stone = current_player.get_stone()
+            valid_move = False
+            while not valid_move:
+                valid_move = self._board.place_stone(point, stone)
+            current_player.update_killed_stone_count(self._board.count_dead_stones())
+            self.turn.next_turn()
+            print([str(group) for group in self._board.groups])
+            self.board()
+
+    def get_position(self, coordinate):
         point = Point(coordinate=coordinate)
-        stone = current_player.get_stone()
-        self._board.place_stone(point, stone)
-        current_player.update_killed_stone_count(self._board.count_dead_stones())
+        return self._board.get_point(point.x, point.y).stone.value
+
+    def pass_turn(self):
+        self.passes += 1
+        if self.passes == 2:
+            self.end_game()
         self.turn.next_turn()
+
+    def reset(self):
+        self._board.reset()
+        self.turn.reset()
+
+    def end_game(self):
+        print('End Game.')
 
 
 if __name__ == '__main__':
-    baduk = Baduk(9)
-    baduk.board()
+    game = Baduk(9)
     point = Point(coordinate='1A')
     assert point.x == 0 and point.y == 0
     point = Point(coordinate='9J')
     assert point.x == 8 and point.y == 8
-    baduk.move('4D')
-    baduk.board()
-    baduk.move('5D')
-    baduk.board()
-    baduk.move('5E')
-    baduk.board()
-    baduk.move('1A')
-    baduk.board()
-    baduk.move('5C')
-    baduk.board()
-    baduk.move('6D')
-    baduk.board()
-    baduk.move('7D')
-    baduk.board()
-    baduk.move('2A')
-    baduk.board()
-    baduk.move('6C')
-    baduk.board()
-    baduk.move('3A')
-    baduk.board()
-    baduk.move('6E')
-    baduk.board()
+    moves = ["4D", "3D", "4H", "5D", "3H", "4C", "5B", "4E"]
+    game.move(*moves)
+    game.board()
+    assert game.get_position('4D') == '.'
+    game.reset()
+    moves = ["6D", "7E", "6E", "6F", "4D", "5E", "5D", "7D",
+             "5C", "6C", "7H", "3D", "4E", "4F", "3E", "2E",
+             "3F", "3G", "2F", "1F", "2G", "2H", "1G", "1H",
+             "4C", "3C", "6H", "4B", "5H", "5B"]
+    captured = ["6D", "6E", "4D", "5D", "5C", "4E", "3E", "3F", "2F", "2G", "1G", "4C"]
+    game.move(*moves)
+    for capture in captured:
+        assert game.get_position(capture) == '.'

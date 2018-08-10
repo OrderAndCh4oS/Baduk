@@ -4,7 +4,7 @@ from baduk.constants import ALPHA_KEY
 
 class Point:
     def __init__(self, x=None, y=None, coordinate=None):
-        if coordinate is not None and len(coordinate) != 2:
+        if coordinate is not None and len(coordinate) > 3:
             raise ValidationError('Coordinate format is invalid')
         if coordinate:
             self.parse_coordinate(coordinate)
@@ -18,9 +18,9 @@ class Point:
 
     def parse_coordinate(self, coordinate):
         self.coordinate = coordinate
-        alpha = coordinate[1]
+        alpha = coordinate[-1:]
         self.x = int(ALPHA_KEY.index(alpha))
-        self.y = int(coordinate[0]) - 1
+        self.y = int(coordinate[:-1]) - 1
 
     def parse_x_y(self, x, y):
         self.coordinate = '%d%s' % (y + 1, ALPHA_KEY[x])
