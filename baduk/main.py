@@ -1,12 +1,13 @@
 from baduk.constants import ALPHA_KEY
 from baduk.enums import Stone
 from baduk.exceptions import ValidationError
+from baduk.move_validation import MoveValidation
 from baduk.player import Player
 from baduk.point import Point
 from baduk.turn import Turn
 
 
-class GroupLink:
+class StoneLink:
     group = None
 
     def __init__(self, point, stone):
@@ -28,22 +29,22 @@ class GroupLink:
             board
         )
 
-    def update(self, links, liberties, board):
+    def find_adjacent(self, links, liberties, board):
         for adjacent_point in self.point.adjacent_points():
             if board.in_grid(adjacent_point):
-                adjacent_link = board.get_point_group_link(**adjacent_point)
+                adjacent_link = board.get_point_stone_link(**adjacent_point)
                 self.set_links_and_liberties(adjacent_link, board, liberties, links)
 
     def set_links_and_liberties(self, adjacent_link, board, liberties, links):
         if adjacent_link.stone == self.stone and adjacent_link not in links:
             links.add(adjacent_link)
-            adjacent_link.update(links, liberties, board)
+            adjacent_link.find_adjacent(links, liberties, board)
         elif adjacent_link.stone == Stone.NONE:
             liberties.add(adjacent_link)
 
 
-class Group:
-    def __init__(self, link: GroupLink):
+class GroupOfStones:
+    def __init__(self, link: StoneLink):
         self.links = set()
         self.liberties = set()
         link.set_group(self)
@@ -54,7 +55,12 @@ class Group:
         return 'Key: %s | Liberties %d' % (
             (', '.join([str(link) for link in self.links])), len(self.liberties))
 
-    def add_link(self, link: GroupLink):
+    def update(self, board):
+        self.links = {self.first_link}
+        self.liberties = set()
+        self.first_link.find_adjacent(self.links, self.liberties, board)
+
+    def add_link(self, link: StoneLink):
         link.set_group(self)
         self.first_link = link
         self.links.add(link)
@@ -65,16 +71,11 @@ class Group:
     def get_links(self):
         return self.links
 
-    def update(self, board):
-        self.links = {self.first_link}
-        self.liberties = set()
-        self.first_link.update(self.links, self.liberties, board)
-
-    def combine(self, group):
+    def merge(self, group):
         self.links = group.links | self.links
         self.liberties = group.liberties | self.liberties
 
-    def update_links(self):
+    def set_links_group(self):
         for link in self.links:
             link.set_group(self)
 
@@ -87,61 +88,71 @@ class Group:
             link.set_group(None)
 
 
-class GroupCollection:
+class GroupOfStonesCollection:
     groups = set()
     dead_stones = set()
 
-    def update(self, board):
+    # Todo: update should not need to return anything
+    def add_stone_link(self, stone_link: StoneLink, board):
+        group = self.add_stone_link_to_group_of_stones(board, stone_link)
+        self.update_groups_of_stones(board)
+        self.find_dead_stones(group)
+        if not self.has_dead_stones() and group.get_liberties() == 0:
+            stone_link.stone = Stone.NONE
+            return False
+        else:
+            self.remove_dead_stones()
+            return True
+
+    def update_groups_of_stones(self, board):
         for group in self.groups:
             group.update(board)
 
-    # Todo: update should not need to return anything
-    def add_stone(self, group_link: GroupLink, board):
-        adjacent_stones = list(group_link.get_adjacent_stones(board))
+    # Todo: Chain of Command
+    def add_stone_link_to_group_of_stones(self, board, stone_link):
+        adjacent_stones = list(stone_link.get_adjacent_stones(board))
         if len(adjacent_stones) > 1:
-            group = self.combine_groups_adjacent_to_link(adjacent_stones, group_link)
+            group = self.merge_with_adjacent_groups_of_stones(stone_link, adjacent_stones)
         elif len(adjacent_stones) == 1:
-            group = self.add_link_adjacent_group(adjacent_stones, group_link)
+            group = self.add_to_adjacent_group_of_stones(stone_link, adjacent_stones, )
         else:
-            group = self.create_new_group(group_link)
-        self.update(board)
+            group = self.create_new_group_of_stones(stone_link)
         return group
 
-    def create_new_group(self, group_link: GroupLink):
-        group = Group(group_link)
+    # Todo: Command + Undo: remove the new group
+    def create_new_group_of_stones(self, stone_link: StoneLink):
+        group = GroupOfStones(stone_link)
         self.groups.add(group)
         return group
 
-    def add_link_adjacent_group(self, adjacent_stones, group_link: GroupLink):
+    # Todo: Command + Undo: remove stone_link from group
+    def add_to_adjacent_group_of_stones(self, stone_link: StoneLink, adjacent_stones: list):
         adjacent_stone = adjacent_stones[0]
         group = adjacent_stone.group
-        group.add_link(group_link)
+        group.add_link(stone_link)
         return group
 
-    def combine_groups_adjacent_to_link(self, adjacent_stones: list, group_link: GroupLink):
-        group = Group(group_link)
+    # Todo: Command + Undo: remove the new group, add the old groups, update the links group
+    def merge_with_adjacent_groups_of_stones(self, stone_link: StoneLink, adjacent_stones: list):
+        group = GroupOfStones(stone_link)
         old_groups = set()
         for adjacent_stone in adjacent_stones:
             old_groups.add(adjacent_stone.group)
-            group.combine(adjacent_stone.group)
+            group.merge(adjacent_stone.group)
         for old_group in old_groups:
             self.groups.remove(old_group)
-        group.update_links()
+        group.set_links_group()
         self.groups.add(group)
         return group
 
-    def remove_dead_stones(self):
-        if len(self.dead_stones) > 0:
-            for dead_stones in self.dead_stones:
-                dead_stones.remove_stones()
-                self.groups.remove(dead_stones)
-        self.dead_stones = set()
-
-    def find_dead_stones(self, current_group, board):
+    def find_dead_stones(self, current_group):
         for group in self.groups:
             # Todo: for class instance comparison classes should implement __hash__ and/or __eq__
             if group.get_liberties() == 0 and str(group) != str(current_group):
                 self.dead_stones.add(group)
+
+    def has_dead_stones(self):
+        return True if len(self.dead_stones) else False
 
     def get_dead_stones_count(self):
         count = 0
@@ -149,16 +160,20 @@ class GroupCollection:
             count += len(dead_stones.get_links()) if dead_stones else 0
         return count
 
-    def has_dead_stones(self):
-        return True if len(self.dead_stones) else False
+    # Todo: Command + Undo: add the the dead stones
+    def remove_dead_stones(self):
+        if len(self.dead_stones) > 0:
+            for dead_stones in self.dead_stones:
+                dead_stones.remove_stones()
+                self.groups.remove(dead_stones)
+        self.dead_stones = set()
 
 
 class Board:
-
     def __init__(self, size: tuple):
         self.size = size
         self.board = self.make_board()
-        self.group_collection = GroupCollection()
+        self.group_collection = GroupOfStonesCollection()
 
     def __repr__(self):
         alpha_row = ' '.join([ALPHA_KEY[i] for i in range(self.size[0])])
@@ -169,7 +184,7 @@ class Board:
     def get_size(self):
         return self.size
 
-    def get_point_group_link(self, x, y):
+    def get_point_stone_link(self, x, y):
         return self.board[y][x]
 
     def draw(self):
@@ -179,34 +194,20 @@ class Board:
         return point['x'] in range(self.size[0]) and point['y'] in range(self.size[1])
 
     def place_stone(self, point: Point, stone: Stone):
-        self.check_point_is_in_bounds(point)
-        self.check_point_is_empty(point)
-        group_link = self.get_point_group_link(point.x, point.y)
-        group_link.set_stone(stone)
-        group = self.group_collection.add_stone(group_link, self)
-        self.group_collection.find_dead_stones(group, self)
-        self.draw()
-        if not self.group_collection.has_dead_stones() and group.get_liberties() == 0:
-            group_link.stone = Stone.NONE
-            return False
-        else:
-            self.group_collection.remove_dead_stones()
-            return True
-
-    def check_point_is_empty(self, point):
-        if self.get_point_group_link(point.x, point.y).stone != Stone.NONE:
-            raise ValidationError('Stone cannot be placed on another stone')
-
-    def check_point_is_in_bounds(self, point):
-        if point.x < 0 or point.x > self.size[0] - 1 or point.y > self.size[1] - 1 or point.y < 0:
-            raise ValidationError('Stone placed out of bounds')
+        MoveValidation.check_point_is_in_bounds(point, self.size)
+        MoveValidation.check_stone_link_is_empty(self.get_point_stone_link(point.x, point.y))
+        stone_link = self.get_point_stone_link(point.x, point.y)
+        stone_link.set_stone(stone)
+        valid_move = False
+        while not valid_move:
+            valid_move = self.group_collection.add_stone_link(stone_link, self)
 
     def reset(self):
-        self.group_collection = GroupCollection()
+        self.group_collection = GroupOfStonesCollection()
         self.board = self.make_board()
 
     def make_board(self):
-        return [[GroupLink(Point(x, y), Stone.NONE) for x in range(self.size[0])] for y in range(self.size[1])]
+        return [[StoneLink(Point(x, y), Stone.NONE) for x in range(self.size[0])] for y in range(self.size[1])]
 
 
 class Baduk:
@@ -247,7 +248,7 @@ class Baduk:
 
     def get_position(self, coordinate):
         point = Point(coordinate=coordinate)
-        return self._board.get_point_group_link(point.x, point.y).stone.value
+        return self._board.get_point_stone_link(point.x, point.y).stone.value
 
     def pass_turn(self):
         self.passes += 1
