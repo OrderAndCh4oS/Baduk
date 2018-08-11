@@ -1,5 +1,5 @@
 from baduk.commands.command_types import UndoableCommand
-from baduk.enums import Stone
+from baduk.stones.enums import Stone
 from baduk.stones.group_of_stones import GroupOfStones
 
 

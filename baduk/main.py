@@ -1,9 +1,9 @@
-from baduk.enums import Stone
 from baduk.exceptions import ValidationError
 from baduk.game.board import Board
 from baduk.game.player import Player
 from baduk.game.point import Point
 from baduk.game.turn import Turn
+from baduk.stones.enums import Stone
 
 
 class DeadStoneCollection:
@@ -46,7 +46,7 @@ class Baduk:
         self._board.place_stone(point, stone)
 
     def get_current_player(self):
-        return self.players[self.turn.current_player()]
+        return self.players[self.turn.current_player() - 1]
 
     def get_position(self, coordinate):
         point = Point(coordinate=coordinate)
@@ -112,17 +112,17 @@ if __name__ == '__main__':
     moves = ["2A", "5A", "1B", "5B", "3B", "5C", "2C", "2B", "5D"]
     small_game.move(*moves)
     assert small_game.get_position('2B') == '.'
-    assert small_game.get_position('5D') == 'x'
+    assert small_game.get_position('5D') == 'o'
     small_game.reset()
     moves = ["2A", "1C", "1B", "2D", "3B", "3C", "2C", "2B", "2C", "5A"]
     small_game.move(*moves)
     small_game.board()
-    assert small_game.get_position('2B') == 'x'
+    assert small_game.get_position('2B') == 'o'
     assert small_game.get_position('2C') == '.'
-    assert small_game.get_position('5A') == 'o'
+    assert small_game.get_position('5A') == 'x'
     small_game.reset()
     moves = ["5C", "5B", "4D", "4A", "3C", "3B", "2D", "2C", "4B", "4C", "4B", "2B"]
     small_game.move(*moves)
     small_game.board()
-    assert small_game.get_position("2B") == 'o'
+    assert small_game.get_position("2B") == 'x'
     assert small_game.get_position("4B") == '.'

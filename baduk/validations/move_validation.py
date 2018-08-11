@@ -1,5 +1,5 @@
-from baduk.enums import Stone
 from baduk.exceptions import ValidationError
+from baduk.stones.enums import Stone
 
 
 class MoveValidation:
