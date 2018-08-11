@@ -8,9 +8,9 @@ class Stone(Enum):
     NONE = '.'
 
     def __str__(self):
-        return self.value \
- \
- \
+        return self.value
+
+
 @unique
 class LifeAndDeathStatus(Enum):
     ALIVE = 1
