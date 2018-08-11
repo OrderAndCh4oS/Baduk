@@ -1,1 +1,0 @@
-from baduk import main

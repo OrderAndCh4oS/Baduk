@@ -1,5 +1,5 @@
-from baduk.exceptions import ValidationError
 from baduk.constants import ALPHA_KEY
+from baduk.exceptions import ValidationError
 
 
 class Point:
@@ -35,14 +35,14 @@ class Point:
             {"x": self.x, "y": self.y - 1}
         ]
 
-    def map_adjacent_links(self, callable, board):
+    def map_adjacent_links(self, callback, board):
         for adjacent_point in self.adjacent_points():
             if board.in_grid(adjacent_point):
-                yield callable(board.get_point(**adjacent_point), board)
+                yield callback(board.get_point_group_link(**adjacent_point), board)
 
-    def filter_adjacent_links(self, callable, board):
+    def filter_adjacent_links(self, callback, board):
         for adjacent_point in self.adjacent_points():
             if board.in_grid(adjacent_point):
-                link = board.get_point(**adjacent_point)
-                if callable(link):
+                link = board.get_point_group_link(**adjacent_point)
+                if callback(link):
                     yield link
