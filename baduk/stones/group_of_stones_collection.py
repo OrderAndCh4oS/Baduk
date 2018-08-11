@@ -3,7 +3,6 @@ from baduk.commands.chain_of_command import ChainOfCommands
 from baduk.commands.create_group_of_stones import CreateNewGroupOfStones
 from baduk.commands.merge_with_adjacent_group_of_stones import MergeWithAdjacentGroupsOfStones
 from baduk.commands.remove_dead_stones import RemoveDeadStones
-from baduk.enums import Stone
 from baduk.stones.stone_link import StoneLink
 
 
@@ -20,7 +19,6 @@ class GroupOfStonesCollection:
         dead_stones = self.find_dead_stones(group)
         self.dead_stone_count = self.count_dead_stones(dead_stones)
         if not self.has_dead_stones() and group.get_liberties() == 0:
-            stone_link.stone = Stone.NONE
             self.chain_of_commands.undo()
             return False
         else:

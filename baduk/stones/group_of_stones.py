@@ -4,6 +4,7 @@ from baduk.stones.stone_link import StoneLink
 
 class GroupOfStones:
     def __init__(self, link: StoneLink):
+        self.stone = link.stone
         self.links = set()
         self.liberties = set()
         link.set_group(self)
@@ -46,3 +47,8 @@ class GroupOfStones:
         for link in self.links:
             link.set_stone(Stone.NONE)
             link.set_group(None)
+
+    def add_stones(self):
+        for link in self.links:
+            link.set_stone(self.stone)
+            link.set_group(self)

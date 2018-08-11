@@ -1,4 +1,5 @@
 from baduk.commands.command_types import UndoableCommand
+from baduk.enums import Stone
 from baduk.stones.group_of_stones import GroupOfStones
 
 
@@ -24,6 +25,7 @@ class MergeWithAdjacentGroupsOfStones(UndoableCommand):
         return self.group
 
     def undo(self):
+        self.stone_link.stone = Stone.NONE
         self.groups.remove(self.group)
         for old_group in self.old_groups:
             self.groups.add(old_group)
