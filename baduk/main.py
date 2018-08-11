@@ -1,3 +1,5 @@
+from baduk.commands.chain_of_command import ChainOfCommands
+from baduk.commands.command_types import UndoableCommand
 from baduk.constants import ALPHA_KEY
 from baduk.enums import Stone
 from baduk.exceptions import ValidationError
@@ -5,6 +7,87 @@ from baduk.move_validation import MoveValidation
 from baduk.player import Player
 from baduk.point import Point
 from baduk.turn import Turn
+
+
+class CreateNewGroupOfStones(UndoableCommand):
+
+    def __init__(self, groups, stone_link):
+        self.stone_link = stone_link
+        self.groups = groups
+        self.group = None
+
+    # Todo: Command + Undo: remove the new group
+    def execute(self, **kwargs):
+        self.group = GroupOfStones(self.stone_link)
+        self.groups.add(self.group)
+        return self.group
+
+    def undo(self):
+        self.groups.remove(self.group)
+
+
+class AddToAdjacentGroupOfStones(UndoableCommand):
+
+    def __init__(self, groups, stone_link, adjacent_stones):
+        self.stone_link = stone_link
+        self.adjacent_stones = adjacent_stones
+        self.groups = groups
+        self.group = None
+
+    # Todo: Command + Undo: remove stone_link from group
+    def execute(self, **kwargs):
+        adjacent_stone = self.adjacent_stones[0]
+        self.group = adjacent_stone.group
+        self.group.add_link(self.stone_link)
+        return self.group
+
+    def undo(self):
+        self.groups.remove(self.group)
+
+
+class MergeWithAdjacentGroupsOfStones(UndoableCommand):
+
+    def __init__(self, groups, stone_link, adjacent_stones):
+        self.stone_link = stone_link
+        self.adjacent_stones = adjacent_stones
+        self.groups = groups
+        self.group = None
+        self.old_groups = set()
+
+    # Todo: Command + Undo: remove the new group, add the old groups, update the links group
+    def execute(self, **kwargs):
+        self.group = GroupOfStones(self.stone_link)
+        for adjacent_stone in self.adjacent_stones:
+            self.old_groups.add(adjacent_stone.group)
+            self.group.merge(adjacent_stone.group)
+        for old_group in self.old_groups:
+            self.groups.remove(old_group)
+        self.group.set_links_group()
+        self.groups.add(self.group)
+        return self.group
+
+    def undo(self):
+        self.groups.remove(self.group)
+        for old_group in self.old_groups:
+            self.groups.add(old_group)
+
+
+class RemoveDeadStones(UndoableCommand):
+
+    def __init__(self, groups, dead_stones):
+        self.groups = groups
+        self.group = None
+        self.dead_stones = dead_stones
+
+    def execute(self):
+        if len(self.dead_stones) > 0:
+            for dead_stones in self.dead_stones:
+                dead_stones.remove_stones()
+                self.groups.remove(dead_stones)
+
+    def undo(self):
+        for dead_stone in self.dead_stones:
+            self.groups.add(dead_stone)
 
 
 class StoneLink:
@@ -56,8 +139,9 @@ class GroupOfStones:
             (', '.join([str(link) for link in self.links])), len(self.liberties))
 
     def update(self, board):
-        self.links = {self.first_link}
-        self.liberties = set()
+        self.links.clear()
+        self.links.add(self.first_link)
+        self.liberties.clear()
         self.first_link.find_adjacent(self.links, self.liberties, board)
 
     def add_link(self, link: StoneLink):
@@ -89,91 +173,81 @@ class GroupOfStones:
 
 
 class GroupOfStonesCollection:
-    groups = set()
-    dead_stones = set()
 
-    # Todo: update should not need to return anything
+    def __init__(self):
+        self.groups = set()
+        self.dead_stone_count = 0
+        self.chain_of_commands = ChainOfCommands()
+
     def add_stone_link(self, stone_link: StoneLink, board):
         group = self.add_stone_link_to_group_of_stones(board, stone_link)
         self.update_groups_of_stones(board)
-        self.find_dead_stones(group)
+        dead_stones = self.find_dead_stones(group)
+        self.dead_stone_count = self.count_dead_stones(dead_stones)
         if not self.has_dead_stones() and group.get_liberties() == 0:
             stone_link.stone = Stone.NONE
+            self.chain_of_commands.undo()
             return False
         else:
-            self.remove_dead_stones()
+            self.remove_dead_stones(dead_stones)
             return True
 
     def update_groups_of_stones(self, board):
         for group in self.groups:
             group.update(board)
 
-    # Todo: Chain of Command
+    # Todo: Chain of Responsibility
     def add_stone_link_to_group_of_stones(self, board, stone_link):
         adjacent_stones = list(stone_link.get_adjacent_stones(board))
         if len(adjacent_stones) > 1:
-            group = self.merge_with_adjacent_groups_of_stones(stone_link, adjacent_stones)
+            group = self.chain_of_commands.execute_command(
+                MergeWithAdjacentGroupsOfStones(self.groups, stone_link, adjacent_stones)
+            )
         elif len(adjacent_stones) == 1:
-            group = self.add_to_adjacent_group_of_stones(stone_link, adjacent_stones, )
+            group = self.chain_of_commands.execute_command(
+                AddToAdjacentGroupOfStones(self.groups, stone_link, adjacent_stones)
+            )
         else:
-            group = self.create_new_group_of_stones(stone_link)
-        return group
-
-    # Todo: Command + Undo: remove the new group
-    def create_new_group_of_stones(self, stone_link: StoneLink):
-        group = GroupOfStones(stone_link)
-        self.groups.add(group)
-        return group
-
-    # Todo: Command + Undo: remove stone_link from group
-    def add_to_adjacent_group_of_stones(self, stone_link: StoneLink, adjacent_stones: list):
-        adjacent_stone = adjacent_stones[0]
-        group = adjacent_stone.group
-        group.add_link(stone_link)
-        return group
-
-    # Todo: Command + Undo: remove the new group, add the old groups, update the links group
-    def merge_with_adjacent_groups_of_stones(self, stone_link: StoneLink, adjacent_stones: list):
-        group = GroupOfStones(stone_link)
-        old_groups = set()
-        for adjacent_stone in adjacent_stones:
-            old_groups.add(adjacent_stone.group)
-            group.merge(adjacent_stone.group)
-        for old_group in old_groups:
-            self.groups.remove(old_group)
-        group.set_links_group()
-        self.groups.add(group)
+            group = self.chain_of_commands.execute_command(
+                CreateNewGroupOfStones(self.groups, stone_link)
+            )
         return group
 
     def find_dead_stones(self, current_group):
+        dead_stones = set()
         for group in self.groups:
             # Todo: for class instance comparison classes should implement __hash__ and/or __eq__
             if group.get_liberties() == 0 and str(group) != str(current_group):
-                self.dead_stones.add(group)
+                dead_stones.add(group)
+        return dead_stones
 
     def has_dead_stones(self):
-        return True if len(self.dead_stones) else False
+        return self.dead_stone_count > 0
 
-    def get_dead_stones_count(self):
+    def count_dead_stones(self, dead_stones):
         count = 0
-        for dead_stones in self.dead_stones:
+        for dead_stones in dead_stones:
             count += len(dead_stones.get_links()) if dead_stones else 0
         return count
 
-    # Todo: Command + Undo: add the the dead stones
-    def remove_dead_stones(self):
-        if len(self.dead_stones) > 0:
-            for dead_stones in self.dead_stones:
-                dead_stones.remove_stones()
-                self.groups.remove(dead_stones)
-        self.dead_stones = set()
+    def get_dead_stones_count(self):
+        return self.dead_stone_count
 
+    def remove_dead_stones(self, dead_stones):
+        self.chain_of_commands.execute_command(
+            RemoveDeadStones(self.groups, dead_stones)
+        )
+
+
+class DeadStoneCollection:
+    pass
 
 class Board:
     def __init__(self, size: tuple):
         self.size = size
         self.board = self.make_board()
         self.group_collection = GroupOfStonesCollection()
+        self.valid_move = False
 
     def __repr__(self):
         alpha_row = ' '.join([ALPHA_KEY[i] for i in range(self.size[0])])
@@ -187,6 +261,9 @@ class Board:
     def get_point_stone_link(self, x, y):
         return self.board[y][x]
 
+    def is_valid_move(self):
+        return self.valid_move
+
     def draw(self):
         print(self)
 
@@ -198,9 +275,7 @@ class Board:
         MoveValidation.check_stone_link_is_empty(self.get_point_stone_link(point.x, point.y))
         stone_link = self.get_point_stone_link(point.x, point.y)
         stone_link.set_stone(stone)
-        valid_move = False
-        while not valid_move:
-            valid_move = self.group_collection.add_stone_link(stone_link, self)
+        self.valid_move = self.group_collection.add_stone_link(stone_link, self)
 
     def reset(self):
         self.group_collection = GroupOfStonesCollection()
@@ -236,9 +311,10 @@ class Baduk:
             stone = current_player.get_stone()
             print(point, stone)
             self._board.place_stone(point, stone)
-            current_player.update_killed_stone_count(self._board.group_collection.get_dead_stones_count())
-            self.turn.next_turn()
-            self.board()
+            if self._board.is_valid_move():
+                current_player.update_killed_stone_count(self._board.group_collection.get_dead_stones_count())
+                self.turn.next_turn()
+                self.board()
 
     def make_move(self, point, stone):
         self._board.place_stone(point, stone)
@@ -306,3 +382,8 @@ if __name__ == '__main__':
     small_game.move(*moves)
     for capture in captured:
         assert small_game.get_position(capture) == '.'
+    small_game.reset()
+    moves = ["2A", "5A", "1B", "5B", "3B", "5C", "2C", "2B", "5D"]
+    small_game.move(*moves)
+    assert small_game.get_position('2B') == '.'
+    assert small_game.get_position('5D') == 'x'
