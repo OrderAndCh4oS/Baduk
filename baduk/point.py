@@ -3,6 +3,10 @@ from baduk.exceptions import ValidationError
 
 
 class Point:
+    coordinate = None
+    x = None
+    y = None
+
     def __init__(self, x=None, y=None, coordinate=None):
         if coordinate is not None and len(coordinate) > 3:
             raise ValidationError('Coordinate format is invalid')

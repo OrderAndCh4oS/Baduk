@@ -266,10 +266,10 @@ class Baduk:
 
 if __name__ == '__main__':
     game = Baduk(9)
-    point = Point(coordinate='1A')
-    assert point.x == 0 and point.y == 0
-    point = Point(coordinate='9J')
-    assert point.x == 8 and point.y == 8
+    board_point = Point(coordinate='1A')
+    assert board_point.x == 0 and board_point.y == 0
+    board_point = Point(coordinate='9J')
+    assert board_point.x == 8 and board_point.y == 8
     moves = ["4D", "3D", "4H", "5D", "3H", "4C", "5B", "4E"]
     game.move(*moves)
     game.board()
