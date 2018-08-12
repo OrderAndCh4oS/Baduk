@@ -16,10 +16,10 @@ class Board:
         self.board_stack = BoardStack()
 
     def __repr__(self):
-        alpha_row = ' '.join([ALPHA_KEY[i] for i in range(self.size[0])])
-        rows = '\n'.join(['%s %s' % (i + 1, row) for i, row in
+        alpha_row = ' '.join([str(ALPHA_KEY[i]) for i in range(self.size[0])])
+        rows = '\n'.join(['%02s %s' % (i + 1, row) for i, row in
                           enumerate(map(lambda x: ' '.join(map(lambda y: str(y.stone), x)), self.board))])
-        return '  %s\n%s' % (alpha_row, rows)
+        return '   %s\n%s' % (alpha_row, rows)
 
     def get_size(self):
         return self.size

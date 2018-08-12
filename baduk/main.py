@@ -4,6 +4,7 @@ from baduk.game.board import Board
 from baduk.game.player import Player
 from baduk.game.point import Point
 from baduk.game.turn import Turn
+from baduk.move_from_sgf import MovesFromSGF
 from baduk.stones.enums import Stone
 
 
@@ -94,7 +95,7 @@ class Baduk:
             if self.move_log.count == 0:
                 return
             if self.move_log.pop() != 'pass':
-                self._board.group_collection.rollback_turn()
+                self._board.group_collection.rollback_turn(self._board)
             self._turn.rollback_turn()
 
     def get_current_player(self):
@@ -123,98 +124,120 @@ class Baduk:
     def end_game(self):
         print('End Game.')
 
+    def replay_sgf(self, sgf):
+        moves = MovesFromSGF(sgf).get_as_korschelt()
+        self.move(*moves)
+        return len(moves)
+
 
 if __name__ == '__main__':
-    game = Baduk(9)
-    board_point = Point(coordinate='1A')
-    assert board_point.x == 0 and board_point.y == 0
-    board_point = Point(coordinate='9J')
-    assert board_point.x == 8 and board_point.y == 8
-    moves = ["4D", "3D", "4H", "5D", "3H", "4C", "5B", "4E"]
-    game.move(*moves)
-    game.board()
-    assert game.get_position('4D') == '.'
-    game.reset()
-    moves = ["6D", "7E", "6E", "6F", "4D", "5E", "5D", "7D",
-             "5C", "6C", "7H", "3D", "4E", "4F", "3E", "2E",
-             "3F", "3G", "2F", "1F", "2G", "2H", "1G", "1H",
-             "4C", "3C", "6H", "4B", "5H", "5B"]
-    captured = ["6D", "6E", "4D", "5D", "5C", "4E", "3E", "3F", "2F", "2G", "1G", "4C"]
-    game.move(*moves)
-    for capture in captured:
-        assert game.get_position(capture) == '.'
-    game.board()
-    game.reset()
-    moves = ["9A", "8A", "8B", "9B"]
-    game.move(*moves)
-    assert game.get_position('9A') == '.'
-    game.board()
-    game.reset()
-    moves = ["5D", "5E", "4E", "6E", "7D", "4F", "7E", "3E", "5F", "4D",
-             "6F", "6D", "6C", "7F", "4E", "5E"]
-    captured = ["4E", "6D", "6E"]
-    game.move(*moves)
-    for capture in captured:
-        assert game.get_position(capture) == '.'
-    game.board()
-    game.reset()
-    small_game = Baduk(5)
-    moves = ["5A", "1E", "5B", "2D", "5C", "2C", "3A",
-             "1C", "2A", "3D", "2B", "3E", "4D", "4B",
-             "4E", "4A", "3C", "3B", "1A", "4C", "3C"]
-    captured = ["4A", "4B", "4C", "3B"]
-    small_game.move(*moves)
-    for capture in captured:
-        assert small_game.get_position(capture) == '.'
-    small_game.reset()
-    moves = ["2A", "5A", "1B", "5B", "3B", "5C", "2C", "2B", "5D"]
-    small_game.move(*moves)
-    assert small_game.get_position('2B') == '.'
-    assert small_game.get_position('5D') == 'o'
-    small_game.reset()
-    moves = ["2A", "1C", "1B", "2D", "3B", "3C", "2C", "2B", "2C", "5A"]
-    small_game.move(*moves)
-    small_game.board()
-    assert small_game.get_position('2B') == 'o'
-    assert small_game.get_position('2C') == '.'
-    assert small_game.get_position('5A') == 'x'
-    small_game.reset()
-    moves = ["5C", "5B", "4D", "4A", "3C", "3B", "2D", "2C", "4B", "4C", "4B", "2B"]
-    small_game.move(*moves)
-    small_game.board()
-    assert small_game.get_position("2B") == 'x'
-    assert small_game.get_position("4B") == '.'
-    small_game.reset()
-    moves = ["1A", "2A"]
-    small_game.move(*moves)
-    small_game.board()
-    small_game.rollback(1)
-    small_game.board()
-    assert small_game.get_position("1A") == 'x'
-    assert small_game.get_position("2A") == '.'
-    small_game.reset()
-    moves = ["1A", "2A", "1E", "1B"]
-    small_game.move(*moves)
-    small_game.board()
-    assert small_game.get_position("1A") == '.'
-    assert small_game.get_position("1B") == 'o'
-    small_game.rollback(1)
-    small_game.board()
-    assert small_game.get_position("1A") == 'x'
-    assert small_game.get_position("1B") == '.'
-    small_game.reset()
-    moves = ["1A", "2A", "1E", "1C"]
-    small_game.move(*moves)
-    small_game.board()
-    small_game.pass_turn()
-    moves = ["4B", "4C"]
-    small_game.move(*moves)
-    small_game.board()
-    assert small_game.get_position("1C") == 'o'
-    assert small_game.get_position("4B") == 'o'
-    assert small_game.get_position("4C") == 'x'
-    small_game.rollback(3)
-    small_game.board()
-    assert small_game.get_position("1C") == 'o'
-    assert small_game.get_position("4B") == '.'
-    assert small_game.get_position("4C") == '.'
+    from os import walk
+
+    sgfs = []
+    for (dir_path, dir_names, file_names) in walk('../sgf'):
+        sgfs.extend(file_names)
+        break
+
+    for sgf in sgfs:
+        game = Baduk(19)
+        print(sgf)
+        move_count = game.replay_sgf('../sgf/%s' % sgf)
+        game.board()
+        game.rollback(move_count)
+        game.board()
+    # game = Baduk(19)
+    # game.board()
+    # game.reset()
+    # game = Baduk(9)
+    # board_point = Point(coordinate='1A')
+    # assert board_point.x == 0 and board_point.y == 0
+    # board_point = Point(coordinate='9J')
+    # assert board_point.x == 8 and board_point.y == 8
+    # moves = ["4D", "3D", "4H", "5D", "3H", "4C", "5B", "4E"]
+    # game.move(*moves)
+    # game.board()
+    # assert game.get_position('4D') == '.'
+    # game.reset()
+    # moves = ["6D", "7E", "6E", "6F", "4D", "5E", "5D", "7D",
+    #          "5C", "6C", "7H", "3D", "4E", "4F", "3E", "2E",
+    #          "3F", "3G", "2F", "1F", "2G", "2H", "1G", "1H",
+    #          "4C", "3C", "6H", "4B", "5H", "5B"]
+    # captured = ["6D", "6E", "4D", "5D", "5C", "4E", "3E", "3F", "2F", "2G", "1G", "4C"]
+    # game.move(*moves)
+    # for capture in captured:
+    #     assert game.get_position(capture) == '.'
+    # game.board()
+    # game.reset()
+    # moves = ["9A", "8A", "8B", "9B"]
+    # game.move(*moves)
+    # assert game.get_position('9A') == '.'
+    # game.board()
+    # game.reset()
+    # moves = ["5D", "5E", "4E", "6E", "7D", "4F", "7E", "3E", "5F", "4D",
+    #          "6F", "6D", "6C", "7F", "4E", "5E"]
+    # captured = ["4E", "6D", "6E"]
+    # game.move(*moves)
+    # for capture in captured:
+    #     assert game.get_position(capture) == '.'
+    # game.board()
+    # game.reset()
+    # small_game = Baduk(5)
+    # moves = ["5A", "1E", "5B", "2D", "5C", "2C", "3A",
+    #          "1C", "2A", "3D", "2B", "3E", "4D", "4B",
+    #          "4E", "4A", "3C", "3B", "1A", "4C", "3C"]
+    # captured = ["4A", "4B", "4C", "3B"]
+    # small_game.move(*moves)
+    # for capture in captured:
+    #     assert small_game.get_position(capture) == '.'
+    # small_game.reset()
+    # moves = ["2A", "5A", "1B", "5B", "3B", "5C", "2C", "2B", "5D"]
+    # small_game.move(*moves)
+    # assert small_game.get_position('2B') == '.'
+    # assert small_game.get_position('5D') == 'o'
+    # small_game.reset()
+    # moves = ["2A", "1C", "1B", "2D", "3B", "3C", "2C", "2B", "2C", "5A"]
+    # small_game.move(*moves)
+    # small_game.board()
+    # assert small_game.get_position('2B') == 'o'
+    # assert small_game.get_position('2C') == '.'
+    # assert small_game.get_position('5A') == 'x'
+    # small_game.reset()
+    # moves = ["5C", "5B", "4D", "4A", "3C", "3B", "2D", "2C", "4B", "4C", "4B", "2B"]
+    # small_game.move(*moves)
+    # small_game.board()
+    # assert small_game.get_position("2B") == 'x'
+    # assert small_game.get_position("4B") == '.'
+    # small_game.reset()
+    # moves = ["1A", "2A"]
+    # small_game.move(*moves)
+    # small_game.board()
+    # small_game.rollback(1)
+    # small_game.board()
+    # assert small_game.get_position("1A") == 'x'
+    # assert small_game.get_position("2A") == '.'
+    # small_game.reset()
+    # moves = ["1A", "2A", "1E", "1B"]
+    # small_game.move(*moves)
+    # small_game.board()
+    # assert small_game.get_position("1A") == '.'
+    # assert small_game.get_position("1B") == 'o'
+    # small_game.rollback(1)
+    # small_game.board()
+    # assert small_game.get_position("1A") == 'x'
+    # assert small_game.get_position("1B") == '.'
+    # small_game.reset()
+    # moves = ["1A", "2A", "1E", "1C"]
+    # small_game.move(*moves)
+    # small_game.board()
+    # small_game.pass_turn()
+    # moves = ["4B", "4C"]
+    # small_game.move(*moves)
+    # small_game.board()
+    # assert small_game.get_position("1C") == 'o'
+    # assert small_game.get_position("4B") == 'o'
+    # assert small_game.get_position("4C") == 'x'
+    # small_game.rollback(3)
+    # small_game.board()
+    # assert small_game.get_position("1C") == 'o'
+    # assert small_game.get_position("4B") == '.'
+    # assert small_game.get_position("4C") == '.'

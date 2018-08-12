@@ -43,6 +43,11 @@ class GroupOfStones:
     def count_stones(self):
         return len(self.links)
 
+    def remove(self, stone_link):
+        self.links.remove(stone_link)
+        stone_link.set_stone(Stone.NONE)
+        stone_link.set_group(None)
+
     def remove_stones(self):
         for link in self.links:
             link.set_stone(Stone.NONE)

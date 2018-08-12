@@ -1,5 +1,4 @@
 from baduk.commands.command_types import UndoableCommand
-from baduk.stones.enums import Stone
 
 
 class AddToAdjacentGroupOfStones(UndoableCommand):
@@ -15,8 +14,8 @@ class AddToAdjacentGroupOfStones(UndoableCommand):
         adjacent_stone = self.adjacent_stones[0]
         self.group = adjacent_stone.group
         self.group.add_link(self.stone_link)
+
         return self.group
 
     def undo(self):
-        self.stone_link.stone = Stone.NONE
-        self.groups.remove(self.group)
+        self.group.remove(self.stone_link)
