@@ -29,7 +29,6 @@ class GroupOfStonesCollection:
         for group in self.groups:
             group.update(board)
 
-    # Todo: Chain of Responsibility
     def add_stone_link_to_group_of_stones(self, board, stone_link):
         adjacent_stones = list(stone_link.get_adjacent_stones(board))
         if len(adjacent_stones) > 1:
@@ -70,3 +69,12 @@ class GroupOfStonesCollection:
         self.chain_of_commands.execute_command(
             RemoveDeadStones(self.groups, dead_stones)
         )
+
+    def rollback_turn(self):
+        self.chain_of_commands.undo()
+        self.chain_of_commands.undo()
+
+    def reset(self):
+        self.groups = set()
+        self.dead_stone_count = 0
+        self.chain_of_commands.reset()

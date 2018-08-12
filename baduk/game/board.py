@@ -50,7 +50,8 @@ class Board:
             self.board_stack.push(self)
 
     def reset(self):
-        self.group_collection = GroupOfStonesCollection()
+        self.group_collection.reset()
+        self.board_stack.reset()
         self.board = self.make_board()
 
     def make_board(self):

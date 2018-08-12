@@ -17,3 +17,6 @@ class Turn:
 
     def reset(self):
         self.turn = 1
+
+    def rollback_turn(self):
+        self.turn -= 1

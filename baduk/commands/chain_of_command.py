@@ -14,3 +14,6 @@ class ChainOfCommands:
         if len(self.stack):
             command = self.stack.pop()
             command.undo()
+
+    def reset(self):
+        self.stack = []
