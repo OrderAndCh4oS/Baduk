@@ -70,7 +70,7 @@ class GroupOfStonesCollection:
             RemoveDeadStones(self.groups, dead_stones)
         )
 
-    def rollback_turn(self, board):
+    def rollback(self):
         self.chain_of_commands.undo()
         self.chain_of_commands.undo()
 

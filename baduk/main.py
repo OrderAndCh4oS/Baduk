@@ -1,3 +1,5 @@
+from random import randint, random
+
 from baduk.constants import HANDICAP_9_X_9, HANDICAP_13_X_13, HANDICAP_19_X_19
 from baduk.exceptions import ValidationError
 from baduk.game.board import Board
@@ -95,7 +97,7 @@ class Baduk:
             if self.move_log.count == 0:
                 return
             if self.move_log.pop() != 'pass':
-                self._board.group_collection.rollback_turn(self._board)
+                self._board.rollback()
             self._turn.rollback_turn()
 
     def get_current_player(self):
@@ -131,6 +133,8 @@ class Baduk:
 
 
 if __name__ == '__main__':
+    game = Baduk(19)
+
     from os import walk
 
     sgfs = []
@@ -139,12 +143,26 @@ if __name__ == '__main__':
         break
 
     for sgf in sgfs:
-        game = Baduk(19)
         print(sgf)
-        move_count = game.replay_sgf('../sgf/%s' % sgf)
+        moves = MovesFromSGF('../sgf/' + sgf).get_as_korschelt()
+        index = 0
+        while index < len(moves):
+            print(index)
+            game.move(moves[index])
+            print("Move: %s  | Index = %d" % (moves[index], index))
+            if random() > 0.8 and index > 10:
+                rollback = int(randint(3, 5))
+                print("Rollback by: %d" % rollback)
+                game.rollback(rollback)
+                index -= (rollback - 1)
+                print("Index = %d" % index)
+                game.board()
+                continue
+            index += 1
+            game.board()
         game.board()
-        game.rollback(move_count)
-        game.board()
+        game.reset()
+
     # game = Baduk(19)
     # game.board()
     # game.reset()

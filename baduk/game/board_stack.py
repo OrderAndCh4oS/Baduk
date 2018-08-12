@@ -15,3 +15,7 @@ class BoardStack:
 
     def reset(self):
         self.past_board_states = []
+
+    def remove_last(self):
+        if len(self.past_board_states):
+            del self.past_board_states[-1]

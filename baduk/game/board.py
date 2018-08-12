@@ -56,3 +56,7 @@ class Board:
 
     def make_board(self):
         return [[StoneLink(Point(x, y), Stone.NONE) for x in range(self.size[0])] for y in range(self.size[1])]
+
+    def rollback(self):
+        self.board_stack.remove_last()
+        self.group_collection.rollback()

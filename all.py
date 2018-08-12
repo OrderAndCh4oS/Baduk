@@ -2,6 +2,7 @@ import os.path
 import re
 from abc import ABCMeta, abstractmethod
 from enum import unique, Enum
+from random import random, randint
 
 ALPHA_KEY = [
     'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J',
@@ -58,12 +59,14 @@ class ChainOfCommands:
             command.undo()
 
     def reset(self):
+        for command in self.stack:
+            del command
         self.stack = []
 
 
 class AddToAdjacentGroupOfStones(UndoableCommand):
 
-    def __init__(self, groups, stone_link, adjacent_stones):
+    def __init__(self, groups: set, stone_link, adjacent_stones: list):
         self.stone_link = stone_link
         self.adjacent_stones = adjacent_stones
         self.groups = groups
@@ -78,12 +81,12 @@ class AddToAdjacentGroupOfStones(UndoableCommand):
         return self.group
 
     def undo(self):
-        self.group.remove(self.stone_link)
+        self.group.remove_stone_from_board(self.stone_link)
 
 
 class MergeWithAdjacentGroupsOfStones(UndoableCommand):
 
-    def __init__(self, groups, stone_link, adjacent_stones):
+    def __init__(self, groups: set, stone_link, adjacent_stones: list):
         self.stone_link = stone_link
         self.adjacent_stones = adjacent_stones
         self.groups = groups
@@ -103,15 +106,16 @@ class MergeWithAdjacentGroupsOfStones(UndoableCommand):
         return self.group
 
     def undo(self):
+        self.group.remove_stone_from_board(self.stone_link)
         self.groups.remove(self.group)
-        self.group.remove(self.stone_link)
         for old_group in self.old_groups:
+            old_group.set_links_group()
             self.groups.add(old_group)
 
 
 class CreateNewGroupOfStones(UndoableCommand):
 
-    def __init__(self, groups, stone_link):
+    def __init__(self, groups: set, stone_link):
         self.stone_link = stone_link
         self.groups = groups
         self.group = None
@@ -123,13 +127,13 @@ class CreateNewGroupOfStones(UndoableCommand):
         return self.group
 
     def undo(self):
+        self.group.remove_stone_from_board(self.stone_link)
         self.groups.remove(self.group)
-        self.group.remove(self.stone_link)
 
 
 class RemoveDeadStones(UndoableCommand):
 
-    def __init__(self, groups, dead_stone_groups):
+    def __init__(self, groups: set, dead_stone_groups: list):
         self.groups = groups
         self.group = None
         self.dead_stone_groups = dead_stone_groups
@@ -137,12 +141,12 @@ class RemoveDeadStones(UndoableCommand):
     def execute(self):
         if len(self.dead_stone_groups) > 0:
             for dead_stone_group in self.dead_stone_groups:
-                dead_stone_group.remove_stones()
+                dead_stone_group.capture_stones()
                 self.groups.remove(dead_stone_group)
 
     def undo(self):
         for dead_stone_group in self.dead_stone_groups:
-            dead_stone_group.add_stones()
+            dead_stone_group.replace_captured_stones()
             self.groups.add(dead_stone_group)
 
 
@@ -242,7 +246,8 @@ class GroupOfStones:
         self.links.add(link)
 
     def __repr__(self):
-        return 'Key: %s | Liberties %d' % ((', '.join([str(link) for link in self.links])), len(self.liberties))
+        return 'Key: %s | Liberties %d' % (
+            (', '.join([str(link) for link in self.links])), len(self.liberties))
 
     def update(self, board):
         self.links.clear()
@@ -252,11 +257,7 @@ class GroupOfStones:
 
     def add_link(self, link: StoneLink):
         link.set_group(self)
-        self.first_link = link
         self.links.add(link)
-
-    def remove_link(self, link: StoneLink):
-        self.links.remove(link)
 
     def get_liberties(self):
         return len(self.liberties)
@@ -275,17 +276,17 @@ class GroupOfStones:
     def count_stones(self):
         return len(self.links)
 
-    def remove(self, stone_link):
-        self.links.remove(stone_link)
+    def remove_stone_from_board(self, stone_link):
         stone_link.set_stone(Stone.NONE)
         stone_link.set_group(None)
+        self.links.remove(stone_link)
 
-    def remove_stones(self):
+    def capture_stones(self):
         for link in self.links:
             link.set_stone(Stone.NONE)
             link.set_group(None)
 
-    def add_stones(self):
+    def replace_captured_stones(self):
         for link in self.links:
             link.set_stone(self.stone)
             link.set_group(self)
@@ -305,7 +306,7 @@ class GroupOfStonesCollection:
         self.dead_stone_count = self.count_dead_stones(dead_stones)
         if not self.has_dead_stones() and group.get_liberties() == 0:
             self.chain_of_commands.undo()
-            raise ValidationError('Self capturing moves are illegal')
+            raise ValidationError("Too many rollbacks")
         else:
             self.remove_dead_stones(dead_stones)
             return True
@@ -355,7 +356,7 @@ class GroupOfStonesCollection:
             RemoveDeadStones(self.groups, dead_stones)
         )
 
-    def rollback_turn(self):
+    def rollback(self):
         self.chain_of_commands.undo()
         self.chain_of_commands.undo()
 
@@ -429,6 +430,10 @@ class BoardStack:
     def reset(self):
         self.past_board_states = []
 
+    def remove_last(self):
+        if len(self.past_board_states):
+            del self.past_board_states[-1]
+
 
 class MoveValidation:
     @staticmethod
@@ -492,6 +497,10 @@ class Board:
 
     def make_board(self):
         return [[StoneLink(Point(x, y), Stone.NONE) for x in range(self.size[0])] for y in range(self.size[1])]
+
+    def rollback(self):
+        self.board_stack.remove_last()
+        self.group_collection.rollback()
 
 
 class Player:
@@ -614,7 +623,7 @@ class Go:
             if self.move_log.count == 0:
                 raise ValidationError("Too many rollbacks")
             if self.move_log.pop() != 'pass':
-                self._board.group_collection.rollback_turn()
+                self._board.group_collection.rollback()
             self._turn.rollback_turn()
             self.turn = self.players_turn()
         self.board = self.board_data()
@@ -656,23 +665,68 @@ class Go:
 
 
 if __name__ == '__main__':
+    game = Go(19)
     from os import walk
 
     sgfs = []
-    for (dir_path, dir_names, file_names) in walk('./sgf'):
+    for (dir_path, dir_names, file_names) in walk('../sgf'):
         sgfs.extend(file_names)
         break
 
-    game = Go(19)
-
     for sgf in sgfs:
         print(sgf)
-        move_count = game.replay_sgf('./sgf/%s' % sgf)
-        game.draw()
-        game.rollback(move_count)
-        game.replay_sgf('./sgf/%s' % sgf)
+        moves = MovesFromSGF('../sgf/' + sgf).get_as_korschelt()
+        index = 0
+        while index < len(moves):
+            print(index)
+            game.move(moves[index])
+            print("Move: %s  | Index = %d" % (moves[index], index))
+            if random() > 0.8 and index > 10:
+                rollback = int(randint(3, 5))
+                print("Rollback by: %d" % rollback)
+                game.rollback(rollback)
+                index -= (rollback - 1)
+                print("Index = %d" % index)
+                game.draw()
+                continue
+            index += 1
+            game.draw()
         game.draw()
         game.reset()
+    # game = Go(20, 8)
+    # moves = ["6F", "4N", "5O", "3K", "2N", "5B", "5A", "3N", "4G", "1C", "2B", "7S", "4Q", "7A", "6E", "5E", "7T", "7Q", "4T", "1P", "6J", "7U", "3Q", "5M", "7F", "2A", "7J", "2U", "2S", "4S", "2R", "4P", "4F", "1E", "2T", "1R", "pass", "2H", "7E", "3E", "3T", "6C", "5U", "5G", "1J", "7C", "1A", "3S", "2O", "5J", "7N", "3F", "4J", "pass", "4A", "6D", "6M", "7H", "3M", "6N", "5K", "1G", "3O", "4L", "3P"]
+    # for move in moves:
+    #     try:
+    #         game.move(move)
+    #     except ValidationError:
+    #         continue
+    # game.rollback(len(moves))
+
+    # from os import walk
+    #
+    # sgfs = []
+    # for (dir_path, dir_names, file_names) in walk('./sgf'):
+    #     sgfs.extend(file_names)
+    #     break
+    #
+    # game = Go(19)
+    #
+    # for sgf in sgfs:
+    #     print(sgf)
+    #     move_count = game.replay_sgf('./sgf/%s' % sgf)
+    #     game.draw()
+    #     game.rollback(move_count)
+    #     game.replay_sgf('./sgf/%s' % sgf)
+    #     game.draw()
+    #     game.reset()
+    # #
+    # game = Go(9)
+    # move_count = game.replay_sgf('./sgf/test-one.sgf')
+    # game.draw()
+    # game.rollback(move_count)
+    # game.replay_sgf('./sgf/test-one.sgf')
+    # game.draw()
+    # game.reset()
 
     # game = Go(9)
     # board_point = Point(coordinate='1A')

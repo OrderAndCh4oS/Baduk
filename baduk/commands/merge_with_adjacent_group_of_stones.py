@@ -1,10 +1,11 @@
 from baduk.commands.command_types import UndoableCommand
 from baduk.stones.group_of_stones import GroupOfStones
+from baduk.stones.stone_link import StoneLink
 
 
 class MergeWithAdjacentGroupsOfStones(UndoableCommand):
 
-    def __init__(self, groups, stone_link, adjacent_stones):
+    def __init__(self, groups: set, stone_link: StoneLink, adjacent_stones: list):
         self.stone_link = stone_link
         self.adjacent_stones = adjacent_stones
         self.groups = groups
@@ -24,7 +25,8 @@ class MergeWithAdjacentGroupsOfStones(UndoableCommand):
         return self.group
 
     def undo(self):
+        self.group.remove_stone_from_board(self.stone_link)
         self.groups.remove(self.group)
-        self.group.remove(self.stone_link)
         for old_group in self.old_groups:
+            old_group.set_links_group()
             self.groups.add(old_group)

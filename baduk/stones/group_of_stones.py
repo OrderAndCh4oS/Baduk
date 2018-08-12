@@ -23,7 +23,6 @@ class GroupOfStones:
 
     def add_link(self, link: StoneLink):
         link.set_group(self)
-        self.first_link = link
         self.links.add(link)
 
     def get_liberties(self):
@@ -43,17 +42,17 @@ class GroupOfStones:
     def count_stones(self):
         return len(self.links)
 
-    def remove(self, stone_link):
-        self.links.remove(stone_link)
+    def remove_stone_from_board(self, stone_link):
         stone_link.set_stone(Stone.NONE)
         stone_link.set_group(None)
+        self.links.remove(stone_link)
 
-    def remove_stones(self):
+    def capture_stones(self):
         for link in self.links:
             link.set_stone(Stone.NONE)
             link.set_group(None)
 
-    def add_stones(self):
+    def replace_captured_stones(self):
         for link in self.links:
             link.set_stone(self.stone)
             link.set_group(self)
