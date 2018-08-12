@@ -669,13 +669,13 @@ if __name__ == '__main__':
     from os import walk
 
     sgfs = []
-    for (dir_path, dir_names, file_names) in walk('../sgf'):
+    for (dir_path, dir_names, file_names) in walk('./sgf'):
         sgfs.extend(file_names)
         break
 
     for sgf in sgfs:
         print(sgf)
-        moves = MovesFromSGF('../sgf/' + sgf).get_as_korschelt()
+        moves = MovesFromSGF('./sgf/' + sgf).get_as_korschelt()
         index = 0
         while index < len(moves):
             print(index)
