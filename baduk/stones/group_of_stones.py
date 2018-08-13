@@ -11,9 +11,9 @@ class GroupOfStones:
         self.first_link = link
         self.links.add(link)
 
-    def __repr__(self):
-        return 'Key: %s | Liberties %d' % (
-            (', '.join([str(link) for link in self.links])), len(self.liberties))
+    # def __repr__(self):
+    #     return 'Key: %s | Liberties %d' % (
+    #         (', '.join([str(link) for link in self.links])), len(self.liberties))
 
     def update(self, board):
         self.links.clear()

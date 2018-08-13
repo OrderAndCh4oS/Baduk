@@ -165,9 +165,6 @@ class Point:
         else:
             raise ValidationError('Needs to be passed a coordinate or x and y')
 
-    def __repr__(self):
-        return self.coordinate.upper()
-
     def parse_coordinate(self, coordinate):
         self.coordinate = coordinate
         alpha = coordinate[-1:]
@@ -207,9 +204,6 @@ class StoneLink:
         self.point = point
         self.stone = stone
 
-    def __repr__(self):
-        return '%s: %s' % (str(self.point), str(self.stone))
-
     def set_group(self, group):
         self.group = group
 
@@ -244,10 +238,6 @@ class GroupOfStones:
         link.set_group(self)
         self.first_link = link
         self.links.add(link)
-
-    def __repr__(self):
-        return 'Key: %s | Liberties %d' % (
-            (', '.join([str(link) for link in self.links])), len(self.liberties))
 
     def update(self, board):
         self.links.clear()
@@ -300,8 +290,12 @@ class GroupOfStonesCollection:
         self.chain_of_commands = ChainOfCommands()
 
     def add_stone_link(self, stone_link: StoneLink, board):
-        group = self.add_stone_link_to_group_of_stones(board, stone_link)
-        self.update_groups_of_stones(board)
+        adjacent_stones = list(stone_link.get_adjacent_stones(board))
+        adjacent_groups = set()
+        for adjacent_stone in adjacent_stones:
+            adjacent_groups.add(adjacent_stone.group)
+        group = self.add_stone_link_to_group_of_stones(stone_link, adjacent_stones)
+        self.update_groups_of_stones(board, adjacent_groups)
         dead_stones = self.find_dead_stones(group)
         self.dead_stone_count = self.count_dead_stones(dead_stones)
         if not self.has_dead_stones() and group.get_liberties() == 0:
@@ -311,12 +305,12 @@ class GroupOfStonesCollection:
             self.remove_dead_stones(dead_stones)
             return True
 
-    def update_groups_of_stones(self, board):
-        for group in self.groups:
+    def update_groups_of_stones(self, board, groups=None):
+        groups = groups or self.groups
+        for group in groups:
             group.update(board)
 
-    def add_stone_link_to_group_of_stones(self, board, stone_link):
-        adjacent_stones = list(stone_link.get_adjacent_stones(board))
+    def add_stone_link_to_group_of_stones(self, stone_link, adjacent_stones):
         if len(adjacent_stones) > 1:
             group = self.chain_of_commands.execute_command(
                 MergeWithAdjacentGroupsOfStones(self.groups, stone_link, adjacent_stones)
@@ -454,12 +448,6 @@ class Board:
         self.group_collection = GroupOfStonesCollection()
         self.valid_move = False
         self.board_stack = BoardStack()
-
-    def __repr__(self):
-        alpha_row = ' '.join([ALPHA_KEY[i] for i in range(self.size[0])])
-        rows = '\n'.join(['%02s %s' % (i + 1, row) for i, row in
-                          enumerate(map(lambda x: ' '.join(map(lambda y: str(y.stone), x)), self.board))])
-        return '   %s\n%s' % (alpha_row, rows)
 
     def get_size(self):
         return self.size

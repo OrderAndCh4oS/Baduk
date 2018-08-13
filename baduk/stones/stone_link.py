@@ -8,8 +8,8 @@ class StoneLink:
         self.point = point
         self.stone = stone
 
-    def __repr__(self):
-        return '%s: %s' % (str(self.point), str(self.stone))
+    # def __repr__(self):
+    #     return '%s: %s' % (str(self.point), str(self.stone))
 
     def set_group(self, group):
         self.group = group
@@ -30,8 +30,8 @@ class StoneLink:
                 self.set_links_and_liberties(adjacent_link, board, liberties, links)
 
     def set_links_and_liberties(self, adjacent_link, board, liberties, links):
-        if adjacent_link.stone == self.stone and adjacent_link not in links:
+        if adjacent_link.stone == Stone.NONE:
+            liberties.add(adjacent_link)
+        elif adjacent_link.stone == self.stone and adjacent_link not in links:
             links.add(adjacent_link)
             adjacent_link.find_adjacent(links, liberties, board)
-        elif adjacent_link.stone == Stone.NONE:
-            liberties.add(adjacent_link)

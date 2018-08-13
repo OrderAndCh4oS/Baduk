@@ -18,7 +18,7 @@ class Point:
             raise ValidationError('Needs to be passed a coordinate or x and y')
 
     def __repr__(self):
-        return self.coordinate.upper()
+        return self.coordinate
 
     def parse_coordinate(self, coordinate):
         self.coordinate = coordinate

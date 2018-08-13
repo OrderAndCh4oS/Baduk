@@ -143,7 +143,6 @@ if __name__ == '__main__':
         break
 
     for sgf in sgfs:
-        print(sgf)
         moves = MovesFromSGF('../sgf/' + sgf).get_as_korschelt()
         index = 0
         while index < len(moves):

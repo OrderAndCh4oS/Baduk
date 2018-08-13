@@ -16,10 +16,7 @@ class Board:
         self.board_stack = BoardStack()
 
     def __repr__(self):
-        alpha_row = ' '.join([str(ALPHA_KEY[i]) for i in range(self.size[0])])
-        rows = '\n'.join(['%02s %s' % (i + 1, row) for i, row in
-                          enumerate(map(lambda x: ' '.join(map(lambda y: str(y.stone), x)), self.board))])
-        return '   %s\n%s' % (alpha_row, rows)
+        return '\n'.join([row for row in map(lambda x: ' '.join(map(lambda y: str(y.stone), x)), self.board)])
 
     def get_size(self):
         return self.size
@@ -31,10 +28,13 @@ class Board:
         return self.valid_move
 
     def draw(self):
-        print(self)
+        alpha_row = ' '.join([str(ALPHA_KEY[i]) for i in range(self.size[0])])
+        rows = '\n'.join(['%02s %s' % (i + 1, row) for i, row in
+                          enumerate(map(lambda x: ' '.join(map(lambda y: str(y.stone), x)), self.board))])
+        print('   %s\n%s' % (alpha_row, rows))
 
     def in_grid(self, point):
-        return point['x'] in range(self.size[0]) and point['y'] in range(self.size[1])
+        return 0 <= point['x'] < self.size[0] and 0 <= point['y'] < self.size[1]
 
     def place_stone(self, point: Point, stone: Stone):
         MoveValidation.check_point_is_in_bounds(point, self.size)

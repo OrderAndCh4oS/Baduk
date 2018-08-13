@@ -9,12 +9,3 @@ class Stone(Enum):
 
     def __str__(self):
         return self.value
-
-
-@unique
-class LifeAndDeathStatus(Enum):
-    ALIVE = 1
-    DEAD = 0
-
-    def __str__(self):
-        return self.value
