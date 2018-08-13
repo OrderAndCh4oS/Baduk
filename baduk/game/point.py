@@ -42,7 +42,7 @@ class Point:
     def map_adjacent_links(self, callback, board):
         for adjacent_point in self.adjacent_points():
             if board.in_grid(adjacent_point):
-                yield callback(board.get_point_stone_link(**adjacent_point), board)
+                yield callback(board.get_point_stone_link(**adjacent_point))
 
     def filter_adjacent_links(self, callback, board):
         for adjacent_point in self.adjacent_points():

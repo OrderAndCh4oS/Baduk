@@ -1,4 +1,4 @@
-from baduk.stones.enums import Stone
+from baduk.enums import Stone
 
 
 class StoneLink:
@@ -20,6 +20,12 @@ class StoneLink:
     def get_adjacent_stones(self, board):
         return self.point.filter_adjacent_links(
             lambda adjacent_link: self.stone == adjacent_link.stone,
+            board
+        )
+
+    def get_adjacent_groups(self, board):
+        return self.point.filter_adjacent_links(
+            lambda adjacent_link: adjacent_link.stone != Stone.NONE,
             board
         )
 

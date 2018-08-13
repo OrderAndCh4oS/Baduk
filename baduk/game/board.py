@@ -1,7 +1,7 @@
 from baduk.constants import ALPHA_KEY
+from baduk.enums import Stone
 from baduk.game.board_stack import BoardStack
 from baduk.game.point import Point
-from baduk.stones.enums import Stone
 from baduk.stones.group_of_stones_collection import GroupOfStonesCollection
 from baduk.stones.stone_link import StoneLink
 from baduk.validations.move_validation import MoveValidation
@@ -16,7 +16,7 @@ class Board:
         self.board_stack = BoardStack()
 
     def __repr__(self):
-        return '\n'.join([row for row in map(lambda x: ' '.join(map(lambda y: str(y.stone), x)), self.board)])
+        return '\n'.join([row for row in map(lambda x: ' '.join(map(lambda y: y.stone.value, x)), self.board)])
 
     def get_size(self):
         return self.size
@@ -30,7 +30,7 @@ class Board:
     def draw(self):
         alpha_row = ' '.join([str(ALPHA_KEY[i]) for i in range(self.size[0])])
         rows = '\n'.join(['%02s %s' % (i + 1, row) for i, row in
-                          enumerate(map(lambda x: ' '.join(map(lambda y: str(y.stone), x)), self.board))])
+                          enumerate(map(lambda x: ' '.join(map(lambda y: y.stone.value, x)), self.board))])
         print('   %s\n%s' % (alpha_row, rows))
 
     def in_grid(self, point):
@@ -41,13 +41,9 @@ class Board:
         MoveValidation.check_stone_link_is_empty(self.get_point_stone_link(point.x, point.y))
         stone_link = self.get_point_stone_link(point.x, point.y)
         stone_link.set_stone(stone)
-        self.valid_move = self.group_collection.add_stone_link(stone_link, self)
-        if self.board_stack.breaks_simple_ko_rule(self):
-            self.valid_move = False
-            self.group_collection.chain_of_commands.undo()
-            self.group_collection.chain_of_commands.undo()
-        else:
-            self.board_stack.push(self)
+        self.group_collection.add_stone_link(stone_link, self)
+        self.board_stack.push(self)
+
 
     def reset(self):
         self.group_collection.reset()
@@ -60,3 +56,4 @@ class Board:
     def rollback(self):
         self.board_stack.remove_last()
         self.group_collection.rollback()
+        self.group_collection.update_groups_of_stones(self)

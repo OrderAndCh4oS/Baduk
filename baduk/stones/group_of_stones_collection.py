@@ -4,6 +4,7 @@ from baduk.commands.create_group_of_stones import CreateNewGroupOfStones
 from baduk.commands.merge_with_adjacent_group_of_stones import MergeWithAdjacentGroupsOfStones
 from baduk.commands.remove_dead_stones import RemoveDeadStones
 from baduk.stones.stone_link import StoneLink
+from baduk.validations.move_validation import MoveValidation
 
 
 class GroupOfStonesCollection:
@@ -15,18 +16,20 @@ class GroupOfStonesCollection:
 
     def add_stone_link(self, stone_link: StoneLink, board):
         group = self.add_stone_link_to_group_of_stones(board, stone_link)
-        self.update_groups_of_stones(board)
+        self.update_adjacent_groups_of_stones(board, group, stone_link)
         dead_stones = self.find_dead_stones(group)
         self.dead_stone_count = self.count_dead_stones(dead_stones)
-        if not self.has_dead_stones() and group.get_liberties() == 0:
-            self.chain_of_commands.undo()
-            return False
-        else:
-            self.remove_dead_stones(dead_stones)
-            return True
+        MoveValidation.check_self_capture(group, self.has_dead_stones(), self.chain_of_commands)
+        self.remove_dead_stones(dead_stones)
+        MoveValidation.breaks_simple_ko_rule(self, dead_stones, board)
 
-    def update_groups_of_stones(self, board):
-        for group in self.groups:
+    def update_adjacent_groups_of_stones(self, board, group, stone_link):
+        adjacent_groups = {link.group for link in stone_link.get_adjacent_groups(board)}
+        adjacent_groups.add(group)
+        self.update_groups_of_stones(board, adjacent_groups)
+
+    def update_groups_of_stones(self, board, groups=None):
+        for group in groups if groups else self.groups:
             group.update(board)
 
     def add_stone_link_to_group_of_stones(self, board, stone_link):
@@ -49,7 +52,7 @@ class GroupOfStonesCollection:
         dead_stones = set()
         for group in self.groups:
             # Todo: for class instance comparison classes should implement __hash__ and/or __eq__
-            if group.get_liberties() == 0 and str(group) != str(current_group):
+            if group.get_liberties() == 0 and group != current_group:
                 dead_stones.add(group)
         return dead_stones
 

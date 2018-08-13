@@ -1,13 +1,13 @@
 from random import randint, random
 
 from baduk.constants import HANDICAP_9_X_9, HANDICAP_13_X_13, HANDICAP_19_X_19
+from baduk.enums import Stone
 from baduk.exceptions import ValidationError
 from baduk.game.board import Board
 from baduk.game.player import Player
 from baduk.game.point import Point
 from baduk.game.turn import Turn
 from baduk.move_from_sgf import MovesFromSGF
-from baduk.stones.enums import Stone
 
 
 class DeadStoneCollection:
@@ -76,16 +76,17 @@ class Baduk:
 
     def move(self, *moves):
         for move in moves:
+            print(move)
             if move == 'pass':
                 self.pass_turn()
                 return
             self.passes = 0
             current_player = self.get_current_player()
             self.make_move(move, current_player)
-            if self._board.is_valid_move():
-                current_player.update_killed_stone_count(self._board.group_collection.get_dead_stones_count())
-                self.move_log.add(move)
-                self._turn.next_turn()
+            current_player.update_killed_stone_count(self._board.group_collection.get_dead_stones_count())
+            self.move_log.add(move)
+            self._turn.next_turn()
+            self.board()
 
     def make_move(self, coordinate, current_player):
         point = Point(coordinate=coordinate)
@@ -95,7 +96,7 @@ class Baduk:
     def rollback(self, number_of_turns: int):
         for _ in range(number_of_turns):
             if self.move_log.count == 0:
-                return
+                raise ValidationError("Too many rollbacks")
             if self.move_log.pop() != 'pass':
                 self._board.rollback()
             self._turn.rollback_turn()
@@ -146,7 +147,11 @@ if __name__ == '__main__':
         moves = MovesFromSGF('../sgf/' + sgf).get_as_korschelt()
         index = 0
         while index < len(moves):
-            game.move(moves[index])
+            try:
+                game.move(moves[index])
+            except:
+                index += 1
+                continue
             if random() > 0.99 and index > 10:
                 rollback = int(randint(3, 10))
                 game.rollback(rollback)
@@ -155,7 +160,6 @@ if __name__ == '__main__':
             index += 1
         game.board()
         game.reset()
-
     game = Baduk(19)
     game.board()
     game.reset()
@@ -202,25 +206,41 @@ if __name__ == '__main__':
         assert small_game.get_position(capture) == '.'
     small_game.reset()
     moves = ["2A", "5A", "1B", "5B", "3B", "5C", "2C", "2B", "5D"]
-    small_game.move(*moves)
+    for move in moves:
+        try:
+            small_game.move(move)
+        except:
+            continue
     assert small_game.get_position('2B') == '.'
     assert small_game.get_position('5D') == 'o'
     small_game.reset()
     moves = ["2A", "1C", "1B", "2D", "3B", "3C", "2C", "2B", "2C", "5A"]
-    small_game.move(*moves)
+    for move in moves:
+        try:
+            small_game.move(move)
+        except:
+            continue
     small_game.board()
     assert small_game.get_position('2B') == 'o'
     assert small_game.get_position('2C') == '.'
     assert small_game.get_position('5A') == 'x'
     small_game.reset()
     moves = ["5C", "5B", "4D", "4A", "3C", "3B", "2D", "2C", "4B", "4C", "4B", "2B"]
-    small_game.move(*moves)
+    for move in moves:
+        try:
+            small_game.move(move)
+        except:
+            continue
     small_game.board()
     assert small_game.get_position("2B") == 'x'
     assert small_game.get_position("4B") == '.'
     small_game.reset()
     moves = ["1A", "2A"]
-    small_game.move(*moves)
+    for move in moves:
+        try:
+            small_game.move(move)
+        except:
+            continue
     small_game.board()
     small_game.rollback(1)
     small_game.board()
@@ -228,7 +248,11 @@ if __name__ == '__main__':
     assert small_game.get_position("2A") == '.'
     small_game.reset()
     moves = ["1A", "2A", "1E", "1B"]
-    small_game.move(*moves)
+    for move in moves:
+        try:
+            small_game.move(move)
+        except:
+            continue
     small_game.board()
     assert small_game.get_position("1A") == '.'
     assert small_game.get_position("1B") == 'o'
@@ -238,11 +262,19 @@ if __name__ == '__main__':
     assert small_game.get_position("1B") == '.'
     small_game.reset()
     moves = ["1A", "2A", "1E", "1C"]
-    small_game.move(*moves)
+    for move in moves:
+        try:
+            small_game.move(move)
+        except:
+            continue
     small_game.board()
     small_game.pass_turn()
     moves = ["4B", "4C"]
-    small_game.move(*moves)
+    for move in moves:
+        try:
+            small_game.move(move)
+        except:
+            continue
     small_game.board()
     assert small_game.get_position("1C") == 'o'
     assert small_game.get_position("4B") == 'o'

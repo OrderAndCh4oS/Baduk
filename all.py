@@ -300,7 +300,7 @@ class GroupOfStonesCollection:
         self.dead_stone_count = self.count_dead_stones(dead_stones)
         if not self.has_dead_stones() and group.get_liberties() == 0:
             self.chain_of_commands.undo()
-            raise ValidationError("Too many rollbacks")
+            raise ValidationError("Self capture is illegal")
         else:
             self.remove_dead_stones(dead_stones)
             return True
