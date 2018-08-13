@@ -2,7 +2,7 @@ import os.path
 import re
 from abc import ABCMeta, abstractmethod
 from enum import unique, Enum
-from random import random, randint
+from random import randint, random
 
 ALPHA_KEY = [
     'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J',
@@ -15,11 +15,6 @@ HANDICAP_13_X_13 = ('10K', '4D', '4K', '10D', '7G', '7D', '7K', '10G', '4G')
 HANDICAP_9_X_9 = ('7G', '3C', '3G', '7C', '5E', '5C', '5G', '7E', '3E')
 
 
-class ValidationError(Exception):
-    def __init__(self, message):
-        super(ValidationError, self).__init__(message)
-
-
 @unique
 class Stone(Enum):
     WHITE = 'o'
@@ -28,6 +23,11 @@ class Stone(Enum):
 
     def __str__(self):
         return self.value
+
+
+class ValidationError(Exception):
+    def __init__(self, message):
+        super(ValidationError, self).__init__(message)
 
 
 class Command(metaclass=ABCMeta):
@@ -59,8 +59,6 @@ class ChainOfCommands:
             command.undo()
 
     def reset(self):
-        for command in self.stack:
-            del command
         self.stack = []
 
 
@@ -82,6 +80,24 @@ class AddToAdjacentGroupOfStones(UndoableCommand):
 
     def undo(self):
         self.group.remove_stone_from_board(self.stone_link)
+
+
+class CreateNewGroupOfStones(UndoableCommand):
+
+    def __init__(self, groups: set, stone_link):
+        self.stone_link = stone_link
+        self.groups = groups
+        self.group = None
+
+    # Todo: Command + Undo: remove the new group
+    def execute(self, **kwargs):
+        self.group = GroupOfStones(self.stone_link)
+        self.groups.add(self.group)
+        return self.group
+
+    def undo(self):
+        self.group.remove_stone_from_board(self.stone_link)
+        self.groups.remove(self.group)
 
 
 class MergeWithAdjacentGroupsOfStones(UndoableCommand):
@@ -113,24 +129,6 @@ class MergeWithAdjacentGroupsOfStones(UndoableCommand):
             self.groups.add(old_group)
 
 
-class CreateNewGroupOfStones(UndoableCommand):
-
-    def __init__(self, groups: set, stone_link):
-        self.stone_link = stone_link
-        self.groups = groups
-        self.group = None
-
-    # Todo: Command + Undo: remove the new group
-    def execute(self, **kwargs):
-        self.group = GroupOfStones(self.stone_link)
-        self.groups.add(self.group)
-        return self.group
-
-    def undo(self):
-        self.group.remove_stone_from_board(self.stone_link)
-        self.groups.remove(self.group)
-
-
 class RemoveDeadStones(UndoableCommand):
 
     def __init__(self, groups: set, dead_stone_groups: list):
@@ -150,59 +148,15 @@ class RemoveDeadStones(UndoableCommand):
             self.groups.add(dead_stone_group)
 
 
-class Point:
-    coordinate = None
-    x = None
-    y = None
-
-    def __init__(self, x=None, y=None, coordinate=None):
-        if coordinate is not None and len(coordinate) > 3:
-            raise ValidationError('Coordinate format is invalid')
-        if coordinate:
-            self.parse_coordinate(coordinate)
-        elif x is not None and y is not None:
-            self.parse_x_y(x, y)
-        else:
-            raise ValidationError('Needs to be passed a coordinate or x and y')
-
-    def parse_coordinate(self, coordinate):
-        self.coordinate = coordinate
-        alpha = coordinate[-1:]
-        self.x = int(ALPHA_KEY.index(alpha))
-        self.y = int(coordinate[:-1]) - 1
-
-    def parse_x_y(self, x, y):
-        self.coordinate = '%d%s' % (y + 1, ALPHA_KEY[x])
-        self.x = x
-        self.y = y
-
-    def adjacent_points(self):
-        return [
-            {"x": self.x + 1, "y": self.y},
-            {"x": self.x - 1, "y": self.y},
-            {"x": self.x, "y": self.y + 1},
-            {"x": self.x, "y": self.y - 1}
-        ]
-
-    def map_adjacent_links(self, callback, board):
-        for adjacent_point in self.adjacent_points():
-            if board.in_grid(adjacent_point):
-                yield callback(board.get_point_stone_link(**adjacent_point), board)
-
-    def filter_adjacent_links(self, callback, board):
-        for adjacent_point in self.adjacent_points():
-            if board.in_grid(adjacent_point):
-                link = board.get_point_stone_link(**adjacent_point)
-                if callback(link):
-                    yield link
-
-
 class StoneLink:
     group = None
 
     def __init__(self, point, stone):
         self.point = point
         self.stone = stone
+
+    # def __repr__(self):
+    #     return '%s: %s' % (str(self.point), str(self.stone))
 
     def set_group(self, group):
         self.group = group
@@ -216,6 +170,12 @@ class StoneLink:
             board
         )
 
+    def get_adjacent_groups(self, board):
+        return self.point.filter_adjacent_links(
+            lambda adjacent_link: adjacent_link.stone != Stone.NONE,
+            board
+        )
+
     def find_adjacent(self, links, liberties, board):
         for adjacent_point in self.point.adjacent_points():
             if board.in_grid(adjacent_point):
@@ -223,11 +183,11 @@ class StoneLink:
                 self.set_links_and_liberties(adjacent_link, board, liberties, links)
 
     def set_links_and_liberties(self, adjacent_link, board, liberties, links):
-        if adjacent_link.stone == self.stone and adjacent_link not in links:
+        if adjacent_link.stone == Stone.NONE:
+            liberties.add(adjacent_link)
+        elif adjacent_link.stone == self.stone and adjacent_link not in links:
             links.add(adjacent_link)
             adjacent_link.find_adjacent(links, liberties, board)
-        elif adjacent_link.stone == Stone.NONE:
-            liberties.add(adjacent_link)
 
 
 class GroupOfStones:
@@ -238,6 +198,11 @@ class GroupOfStones:
         link.set_group(self)
         self.first_link = link
         self.links.add(link)
+
+    #
+    # def __repr__(self):
+    #     return 'Key: %s | Liberties %d' % (
+    #         (', '.join([str(link) for link in self.links])), len(self.liberties))
 
     def update(self, board):
         self.links.clear()
@@ -290,27 +255,23 @@ class GroupOfStonesCollection:
         self.chain_of_commands = ChainOfCommands()
 
     def add_stone_link(self, stone_link: StoneLink, board):
-        adjacent_stones = list(stone_link.get_adjacent_stones(board))
-        adjacent_groups = set()
-        for adjacent_stone in adjacent_stones:
-            adjacent_groups.add(adjacent_stone.group)
-        group = self.add_stone_link_to_group_of_stones(stone_link, adjacent_stones)
+        group = self.add_stone_link_to_group_of_stones(board, stone_link)
+        adjacent_groups = {link.group for link in stone_link.get_adjacent_groups(board)}
+        adjacent_groups.add(group)
         self.update_groups_of_stones(board, adjacent_groups)
         dead_stones = self.find_dead_stones(group)
         self.dead_stone_count = self.count_dead_stones(dead_stones)
-        if not self.has_dead_stones() and group.get_liberties() == 0:
-            self.chain_of_commands.undo()
-            raise ValidationError("Self capture is illegal")
-        else:
-            self.remove_dead_stones(dead_stones)
-            return True
+        MoveValidation.check_self_capture(group, self.has_dead_stones(), self.chain_of_commands)
+        self.remove_dead_stones(dead_stones)
+        MoveValidation.breaks_simple_ko_rule(board, self.dead_stone_count, self.chain_of_commands)
+        return True
 
     def update_groups_of_stones(self, board, groups=None):
-        groups = groups or self.groups
-        for group in groups:
+        for group in groups if groups else self.groups:
             group.update(board)
 
-    def add_stone_link_to_group_of_stones(self, stone_link, adjacent_stones):
+    def add_stone_link_to_group_of_stones(self, board, stone_link):
+        adjacent_stones = list(stone_link.get_adjacent_stones(board))
         if len(adjacent_stones) > 1:
             group = self.chain_of_commands.execute_command(
                 MergeWithAdjacentGroupsOfStones(self.groups, stone_link, adjacent_stones)
@@ -329,7 +290,7 @@ class GroupOfStonesCollection:
         dead_stones = set()
         for group in self.groups:
             # Todo: for class instance comparison classes should implement __hash__ and/or __eq__
-            if group.get_liberties() == 0 and str(group) != str(current_group):
+            if group.get_liberties() == 0 and group != current_group:
                 dead_stones.add(group)
         return dead_stones
 
@@ -360,50 +321,79 @@ class GroupOfStonesCollection:
         self.chain_of_commands.reset()
 
 
-class Turn:
+class Point:
+    coordinate = None
+    x = None
+    y = None
 
-    def __init__(self):
-        self.turn = 1
+    def __init__(self, x=None, y=None, coordinate=None):
+        if coordinate is not None and len(coordinate) > 3:
+            raise ValidationError('Coordinate format is invalid')
+        if coordinate:
+            self.parse_coordinate(coordinate)
+        elif x is not None and y is not None:
+            self.parse_x_y(x, y)
+        else:
+            raise ValidationError('Needs to be passed a coordinate or x and y')
 
-    def next_turn(self):
-        self.turn += 1
+    def __repr__(self):
+        return self.coordinate
 
-    def get_turn(self):
-        return self.turn
+    def parse_coordinate(self, coordinate):
+        self.coordinate = coordinate
+        alpha = coordinate[-1:]
+        self.x = int(ALPHA_KEY.index(alpha))
+        self.y = int(coordinate[:-1]) - 1
 
-    def current_player(self):
-        return 1 if self.turn % 2 else 0
+    def parse_x_y(self, x, y):
+        self.coordinate = '%d%s' % (y + 1, ALPHA_KEY[x])
+        self.x = x
+        self.y = y
 
-    def __str__(self):
-        return 'Turn %d' % self.turn
+    def adjacent_points(self):
+        return [
+            {"x": self.x + 1, "y": self.y},
+            {"x": self.x - 1, "y": self.y},
+            {"x": self.x, "y": self.y + 1},
+            {"x": self.x, "y": self.y - 1}
+        ]
 
-    def reset(self):
-        self.turn = 1
+    def map_adjacent_links(self, callback, board):
+        for adjacent_point in self.adjacent_points():
+            if board.in_grid(adjacent_point):
+                yield callback(board.get_point_stone_link(**adjacent_point))
 
-    def rollback_turn(self):
-        self.turn -= 1
+    def filter_adjacent_links(self, callback, board):
+        for adjacent_point in self.adjacent_points():
+            if board.in_grid(adjacent_point):
+                link = board.get_point_stone_link(**adjacent_point)
+                if callback(link):
+                    yield link
 
 
-class MoveLog:
+class MoveValidation:
+    @staticmethod
+    def check_stone_link_is_empty(stone_link):
+        if stone_link.stone != Stone.NONE:
+            raise ValidationError('Stone cannot be placed on another stone')
 
-    def __init__(self):
-        self.moves = []
-        self.count = 0
+    @staticmethod
+    def check_point_is_in_bounds(point, size):
+        if point.x < 0 or point.x > size[0] - 1 or point.y > size[1] - 1 or point.y < 0:
+            raise ValidationError('Stone placed out of bounds')
 
-    def add(self, move):
-        self.moves.append(move)
-        self.count += 1
+    @staticmethod
+    def check_self_capture(group, has_dead_stones, chain_of_commands):
+        if not has_dead_stones and group.get_liberties() == 0:
+            chain_of_commands.undo()
+            raise ValidationError("Self capture is illegal")
 
-    def pop(self):
-        self.count -= 1
-        return self.moves.pop()
-
-    def count(self):
-        return self.count
-
-    def reset(self):
-        self.moves = []
-        self.count = 0
+    @staticmethod
+    def breaks_simple_ko_rule(board, dead_stone_count, chain_of_commands):
+        if dead_stone_count == 1 and board.board_stack.breaks_simple_ko_rule(board):
+            chain_of_commands.undo()
+            chain_of_commands.undo()
+            raise ValidationError('Breaks simple Ko Rule')
 
 
 class BoardStack:
@@ -428,19 +418,6 @@ class BoardStack:
         if len(self.past_board_states):
             del self.past_board_states[-1]
 
-
-class MoveValidation:
-    @staticmethod
-    def check_stone_link_is_empty(stone_link):
-        if stone_link.stone != Stone.NONE:
-            raise ValidationError('Stone cannot be placed on another stone')
-
-    @staticmethod
-    def check_point_is_in_bounds(point, size):
-        if point.x < 0 or point.x > size[0] - 1 or point.y > size[1] - 1 or point.y < 0:
-            raise ValidationError('Stone placed out of bounds')
-
-
 class Board:
     def __init__(self, size: tuple):
         self.size = size
@@ -448,6 +425,9 @@ class Board:
         self.group_collection = GroupOfStonesCollection()
         self.valid_move = False
         self.board_stack = BoardStack()
+
+    def __repr__(self):
+        return ''.join([row for row in map(lambda x: ''.join(map(lambda y: y.stone.value, x)), self.board)])
 
     def get_size(self):
         return self.size
@@ -458,11 +438,14 @@ class Board:
     def is_valid_move(self):
         return self.valid_move
 
-    def draw(self):
-        print(self)
+    # def draw(self):
+    #     alpha_row = ' '.join([str(ALPHA_KEY[i]) for i in range(self.size[0])])
+    #     rows = '\n'.join(['%02s %s' % (i + 1, row) for i, row in
+    #                       enumerate(map(lambda x: ' '.join(map(lambda y: str(y.stone), x)), self.board))])
+    #     print('   %s\n%s' % (alpha_row, rows))
 
     def in_grid(self, point):
-        return point['x'] in range(self.size[0]) and point['y'] in range(self.size[1])
+        return 0 <= point['x'] < self.size[0] and 0 <= point['y'] < self.size[1]
 
     def place_stone(self, point: Point, stone: Stone):
         MoveValidation.check_point_is_in_bounds(point, self.size)
@@ -470,12 +453,7 @@ class Board:
         stone_link = self.get_point_stone_link(point.x, point.y)
         stone_link.set_stone(stone)
         self.valid_move = self.group_collection.add_stone_link(stone_link, self)
-        if self.board_stack.breaks_simple_ko_rule(self):
-            self.valid_move = False
-            self.group_collection.chain_of_commands.undo()
-            self.group_collection.chain_of_commands.undo()
-            raise ValidationError('Breaks simple Ko Rule')
-        else:
+        if self.valid_move:
             self.board_stack.push(self)
 
     def reset(self):
@@ -489,6 +467,7 @@ class Board:
     def rollback(self):
         self.board_stack.remove_last()
         self.group_collection.rollback()
+        self.group_collection.update_groups_of_stones(self)
 
 
 class Player:
@@ -505,6 +484,30 @@ class Player:
 
     def __str__(self):
         return self.name
+
+
+class Turn:
+
+    def __init__(self):
+        self.turn = 1
+
+    def next_turn(self):
+        self.turn += 1
+
+    def get_turn(self):
+        return self.turn
+
+    def current_player(self):
+        return 1 if self.turn % 2 else 0
+
+    def __str__(self):
+        return 'Turn %d' % self.turn
+
+    def reset(self):
+        self.turn = 1
+
+    def rollback_turn(self):
+        self.turn -= 1
 
 
 class MovesFromSGF:
@@ -541,7 +544,30 @@ class MovesFromSGF:
         return "%s%s" % (row_key, column_key)
 
 
+class MoveLog:
+
+    def __init__(self):
+        self.moves = []
+        self.count = 0
+
+    def add(self, move):
+        self.moves.append(move)
+        self.count += 1
+
+    def pop(self):
+        self.count -= 1
+        return self.moves.pop()
+
+    def count(self):
+        return self.count
+
+    def reset(self):
+        self.moves = []
+        self.count = 0
+
+
 class Go:
+
     def __init__(self, size: int, height: int = None):
         if size > 25 or height is not None and height > 25:
             raise ValidationError('Board must be less than 25 x 25')
@@ -577,7 +603,6 @@ class Go:
             self.make_move(handicap_stones[i], current_player)
         self._turn.next_turn()
         self.turn = self.players_turn()
-
         self.board = self.board_data()
 
     def board_data(self):
@@ -611,7 +636,7 @@ class Go:
             if self.move_log.count == 0:
                 raise ValidationError("Too many rollbacks")
             if self.move_log.pop() != 'pass':
-                self._board.group_collection.rollback()
+                self._board.rollback()
             self._turn.rollback_turn()
             self.turn = self.players_turn()
         self.board = self.board_data()
@@ -626,8 +651,6 @@ class Go:
     def pass_turn(self):
         self.passes += 1
         self.move_log.add('pass')
-        if self.passes == 2:
-            self.end_game()
         self._turn.next_turn()
         self.turn = self.players_turn()
         self.board = self.board_data()
@@ -643,9 +666,6 @@ class Go:
         self.board = self.board_data()
         self.turn = self.players_turn()
 
-    def end_game(self):
-        print('End Game.')
-
     def replay_sgf(self, sgf):
         moves = MovesFromSGF(sgf).get_as_korschelt()
         self.move(*moves)
@@ -654,6 +674,7 @@ class Go:
 
 if __name__ == '__main__':
     game = Go(19)
+
     from os import walk
 
     sgfs = []
@@ -662,60 +683,25 @@ if __name__ == '__main__':
         break
 
     for sgf in sgfs:
-        print(sgf)
         moves = MovesFromSGF('./sgf/' + sgf).get_as_korschelt()
         index = 0
         while index < len(moves):
-            print(index)
-            game.move(moves[index])
-            print("Move: %s  | Index = %d" % (moves[index], index))
-            if random() > 0.8 and index > 10:
-                rollback = int(randint(3, 5))
-                print("Rollback by: %d" % rollback)
+            try:
+                game.move(moves[index])
+            except:
+                index += 1
+                continue
+            if random() > 0.99 and index > 10:
+                rollback = int(randint(3, 10))
                 game.rollback(rollback)
                 index -= (rollback - 1)
-                print("Index = %d" % index)
-                game.draw()
                 continue
             index += 1
-            game.draw()
-        game.draw()
+        print(game.board)
         game.reset()
-    # game = Go(20, 8)
-    # moves = ["6F", "4N", "5O", "3K", "2N", "5B", "5A", "3N", "4G", "1C", "2B", "7S", "4Q", "7A", "6E", "5E", "7T", "7Q", "4T", "1P", "6J", "7U", "3Q", "5M", "7F", "2A", "7J", "2U", "2S", "4S", "2R", "4P", "4F", "1E", "2T", "1R", "pass", "2H", "7E", "3E", "3T", "6C", "5U", "5G", "1J", "7C", "1A", "3S", "2O", "5J", "7N", "3F", "4J", "pass", "4A", "6D", "6M", "7H", "3M", "6N", "5K", "1G", "3O", "4L", "3P"]
-    # for move in moves:
-    #     try:
-    #         game.move(move)
-    #     except ValidationError:
-    #         continue
-    # game.rollback(len(moves))
-
-    # from os import walk
-    #
-    # sgfs = []
-    # for (dir_path, dir_names, file_names) in walk('./sgf'):
-    #     sgfs.extend(file_names)
-    #     break
-    #
     # game = Go(19)
-    #
-    # for sgf in sgfs:
-    #     print(sgf)
-    #     move_count = game.replay_sgf('./sgf/%s' % sgf)
-    #     game.draw()
-    #     game.rollback(move_count)
-    #     game.replay_sgf('./sgf/%s' % sgf)
-    #     game.draw()
-    #     game.reset()
-    # #
-    # game = Go(9)
-    # move_count = game.replay_sgf('./sgf/test-one.sgf')
-    # game.draw()
-    # game.rollback(move_count)
-    # game.replay_sgf('./sgf/test-one.sgf')
     # game.draw()
     # game.reset()
-
     # game = Go(9)
     # board_point = Point(coordinate='1A')
     # assert board_point.x == 0 and board_point.y == 0
@@ -723,7 +709,7 @@ if __name__ == '__main__':
     # assert board_point.x == 8 and board_point.y == 8
     # moves = ["4D", "3D", "4H", "5D", "3H", "4C", "5B", "4E"]
     # game.move(*moves)
-    # print(game.board)
+    # game.draw()
     # assert game.get_position('4D') == '.'
     # game.reset()
     # moves = ["6D", "7E", "6E", "6F", "4D", "5E", "5D", "7D",
@@ -734,12 +720,12 @@ if __name__ == '__main__':
     # game.move(*moves)
     # for capture in captured:
     #     assert game.get_position(capture) == '.'
-    # print(game.board)
+    # game.draw()
     # game.reset()
     # moves = ["9A", "8A", "8B", "9B"]
     # game.move(*moves)
     # assert game.get_position('9A') == '.'
-    # print(game.board)
+    # game.draw()
     # game.reset()
     # moves = ["5D", "5E", "4E", "6E", "7D", "4F", "7E", "3E", "5F", "4D",
     #          "6F", "6D", "6C", "7F", "4E", "5E"]
@@ -747,7 +733,7 @@ if __name__ == '__main__':
     # game.move(*moves)
     # for capture in captured:
     #     assert game.get_position(capture) == '.'
-    # print(game.board)
+    # game.draw()
     # game.reset()
     # small_game = Go(5)
     # moves = ["5A", "1E", "5B", "2D", "5C", "2C", "3A",
@@ -765,47 +751,107 @@ if __name__ == '__main__':
     # small_game.reset()
     # moves = ["2A", "1C", "1B", "2D", "3B", "3C", "2C", "2B", "2C", "5A"]
     # small_game.move(*moves)
-    # print(small_game.board)
+    # small_game.draw()
     # assert small_game.get_position('2B') == 'o'
     # assert small_game.get_position('2C') == '.'
     # assert small_game.get_position('5A') == 'x'
     # small_game.reset()
     # moves = ["5C", "5B", "4D", "4A", "3C", "3B", "2D", "2C", "4B", "4C", "4B", "2B"]
     # small_game.move(*moves)
-    # print(small_game.board)
+    # small_game.draw()
     # assert small_game.get_position("2B") == 'x'
     # assert small_game.get_position("4B") == '.'
     # small_game.reset()
     # moves = ["1A", "2A"]
     # small_game.move(*moves)
-    # print(small_game.board)
+    # small_game.draw()
     # small_game.rollback(1)
-    # print(small_game.board)
+    # small_game.draw()
     # assert small_game.get_position("1A") == 'x'
     # assert small_game.get_position("2A") == '.'
     # small_game.reset()
     # moves = ["1A", "2A", "1E", "1B"]
     # small_game.move(*moves)
-    # print(small_game.board)
+    # small_game.draw()
     # assert small_game.get_position("1A") == '.'
     # assert small_game.get_position("1B") == 'o'
     # small_game.rollback(1)
-    # print(small_game.board)
+    # small_game.draw()
     # assert small_game.get_position("1A") == 'x'
     # assert small_game.get_position("1B") == '.'
     # small_game.reset()
     # moves = ["1A", "2A", "1E", "1C"]
     # small_game.move(*moves)
-    # print(small_game.board)
+    # small_game.draw()
     # small_game.pass_turn()
     # moves = ["4B", "4C"]
     # small_game.move(*moves)
-    # print(small_game.board)
+    # small_game.draw()
     # assert small_game.get_position("1C") == 'o'
     # assert small_game.get_position("4B") == 'o'
     # assert small_game.get_position("4C") == 'x'
     # small_game.rollback(3)
-    # print(small_game.board)
+    # small_game.draw()
     # assert small_game.get_position("1C") == 'o'
     # assert small_game.get_position("4B") == '.'
     # assert small_game.get_position("4C") == '.'
+
+[['.', '.', '.', '.', '.', '.', '.', '.', '.', '.'],
+ ['.', '.', 'x', 'x', 'o', '.', 'x', 'o', 'o', 'o'],
+ ['o', 'x', 'o', 'x', '.', '.', '.', '.', 'x', '.'],
+ ['.', 'x', 'o', '.', 'o', 'o', '.', 'o', 'x', 'x'],
+ ['x', 'x', 'o', 'o', 'x', 'o', '.', '.', '.', 'o'],
+ ['o', 'x', 'x', 'x', 'x', '.', 'o', '.', '.', 'o'],
+ ['o', 'x', 'o', 'x', '.', 'o', 'x', 'o', 'o', 'x'],
+ ['.', '.', 'o', 'x', '.', 'x', '.', 'x', 'o', '.']]
+
+[['.', '.', '.', '.', '.', '.', '.', '.', '.', '.'],
+ ['.', '.', 'x', 'x', 'o', '.', 'x', 'o', 'o', 'o'],
+ ['o', 'x', 'o', 'x', '.', '.', '.', '.', 'x', '.'],
+ ['.', 'x', 'o', '.', 'o', 'o', '.', 'o', 'x', 'x'],
+ ['x', 'x', 'o', 'o', 'x', 'o', '.', '.', '.', 'o'],
+ ['o', 'x', 'x', 'x', 'x', '.', 'o', '.', '.', 'o'],
+ ['o', 'x', 'o', 'x', '.', 'o', 'x', 'o', 'o', 'x'],
+ ['.', '.', 'o', 'x', 'o', 'x', '.', 'x', 'o', '.']]
+
+[['.', '.', '.', '.', '.', '.', '.', '.', '.'],
+ ['.', 'o', '.', 'o', 'x', '.', 'o', '.', '.'],
+ ['.', 'o', '.', '.', 'o', '.', '.', 'o', 'x'],
+ ['o', '.', '.', 'x', '.', '.', '.', 'o', 'x'],
+ ['o', '.', '.', '.', 'x', '.', 'x', '.', '.'],
+ ['x', 'o', 'o', 'o', '.', 'x', 'x', '.', 'o'],
+ ['x', 'x', '.', 'o', '.', 'o', '.', 'o', 'x'],
+ ['.', 'x', 'o', 'x', '.', '.', 'o', 'x', '.'],
+ ['.', '.', '.', 'x', 'x', 'x', 'x', 'x', 'x'],
+ ['x', '.', '.', '.', '.', 'o', '.', '.', '.'],
+ ['x', '.', '.', 'x', 'o', 'o', '.', '.', '.'],
+ ['.', 'o', 'x', '.', 'o', 'x', '.', '.', 'x'],
+ ['.', 'o', '.', 'x', '.', '.', 'o', 'x', '.'],
+ ['.', '.', '.', '.', '.', 'o', '.', 'x', '.'],
+ ['.', '.', 'x', 'x', '.', '.', '.', '.', '.'],
+ ['.', '.', '.', 'x', 'o', '.', '.', 'x', '.'],
+ ['o', 'o', 'x', 'o', 'o', 'x', 'x', '.', 'o'],
+ ['o', 'x', 'x', 'x', '.', 'x', '.', 'o', 'o'],
+ ['.', 'o', '.', '.', '.', 'o', 'o', '.', 'x'],
+ ['.', '.', '.', '.', 'x', 'o', '.', 'o', 'o']]
+
+[['.', '.', '.', '.', '.', '.', '.', '.', '.'],
+ ['.', 'o', '.', 'o', 'x', '.', 'o', '.', '.'],
+ ['.', 'o', '.', '.', 'o', '.', '.', 'o', 'x'],
+ ['o', '.', '.', 'x', '.', '.', '.', 'o', 'x'],
+ ['o', '.', '.', '.', 'x', '.', 'x', '.', '.'],
+ ['x', 'o', 'o', 'o', '.', 'x', 'x', '.', 'o'],
+ ['x', 'x', '.', 'o', '.', 'o', '.', 'o', 'x'],
+ ['.', 'x', 'o', 'x', '.', '.', 'o', 'x', '.'],
+ ['.', '.', '.', 'x', 'x', 'x', 'x', 'x', 'x'],
+ ['x', '.', '.', '.', '.', 'o', '.', '.', '.'],
+ ['x', '.', '.', 'x', 'o', 'o', '.', '.', '.'],
+ ['.', 'o', 'x', '.', 'o', 'x', '.', '.', 'x'],
+ ['.', 'o', '.', 'x', '.', '.', 'o', 'x', '.'],
+ ['.', '.', '.', '.', '.', 'o', '.', 'x', '.'],
+ ['.', '.', 'x', 'x', '.', '.', '.', 'o', '.'],
+ ['.', '.', '.', 'x', 'o', '.', '.', 'x', '.'],
+ ['o', 'o', 'x', 'o', 'o', 'x', 'x', '.', 'o'],
+ ['o', 'x', 'x', 'x', '.', 'x', '.', 'o', 'o'],
+ ['.', 'o', '.', '.', '.', 'o', 'o', '.', 'x'],
+ ['.', '.', '.', '.', 'x', 'o', '.', 'o', 'o']]
