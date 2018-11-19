@@ -1,4 +1,4 @@
-from baduk.commands.command_types import UndoableCommand
+from baduk.command.command_types import UndoableCommand
 from baduk.stones.group_of_stones import GroupOfStones
 from baduk.stones.stone_link import StoneLink
 

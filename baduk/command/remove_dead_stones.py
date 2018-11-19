@@ -1,4 +1,4 @@
-from baduk.commands.command_types import UndoableCommand
+from baduk.command.command_types import UndoableCommand
 
 
 class RemoveDeadStones(UndoableCommand):

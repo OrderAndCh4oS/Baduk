@@ -1,4 +1,4 @@
-from baduk.commands.command_types import Command, UndoableCommand
+from baduk.command.command_types import Command, UndoableCommand
 
 
 class ChainOfCommands:

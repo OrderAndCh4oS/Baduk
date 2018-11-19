@@ -1,10 +1,10 @@
-from baduk.commands.add_to_adjacent_group_of_stones import AddToAdjacentGroupOfStones
-from baduk.commands.chain_of_command import ChainOfCommands
-from baduk.commands.create_group_of_stones import CreateNewGroupOfStones
-from baduk.commands.merge_with_adjacent_group_of_stones import MergeWithAdjacentGroupsOfStones
-from baduk.commands.remove_dead_stones import RemoveDeadStones
+from baduk.command.add_to_adjacent_group_of_stones import AddToAdjacentGroupOfStones
+from baduk.command.chain_of_command import ChainOfCommands
+from baduk.command.create_group_of_stones import CreateNewGroupOfStones
+from baduk.command.merge_with_adjacent_group_of_stones import MergeWithAdjacentGroupsOfStones
+from baduk.command.remove_dead_stones import RemoveDeadStones
 from baduk.stones.stone_link import StoneLink
-from baduk.validations.move_validation import MoveValidation
+from baduk.validation.move_validation import MoveValidation
 
 
 class GroupOfStonesCollection:

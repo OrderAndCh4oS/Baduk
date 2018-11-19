@@ -1,5 +1,5 @@
-from baduk.constants import ALPHA_KEY
-from baduk.exceptions import ValidationError
+from baduk.constants.constants import ALPHA_KEY
+from baduk.exception.exceptions import ValidationError
 
 
 class Point:

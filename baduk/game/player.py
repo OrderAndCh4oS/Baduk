@@ -1,4 +1,4 @@
-from baduk.enums import Stone
+from baduk.enums.enums import Stone
 
 
 class Player:

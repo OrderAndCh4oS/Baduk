@@ -1,10 +1,10 @@
-from baduk.constants import ALPHA_KEY
-from baduk.enums import Stone
+from baduk.constants.constants import ALPHA_KEY
+from baduk.enums.enums import Stone
 from baduk.game.board_stack import BoardStack
 from baduk.game.point import Point
 from baduk.stones.group_of_stones_collection import GroupOfStonesCollection
 from baduk.stones.stone_link import StoneLink
-from baduk.validations.move_validation import MoveValidation
+from baduk.validation.move_validation import MoveValidation
 
 
 class Board:

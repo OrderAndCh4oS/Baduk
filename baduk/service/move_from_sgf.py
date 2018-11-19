@@ -1,7 +1,7 @@
 import os.path
 import re
 
-from baduk.constants import ALPHA_KEY
+from baduk.constants.constants import ALPHA_KEY
 
 
 class MovesFromSGF:
