@@ -22,6 +22,7 @@ class StartGameAction(Action):
             move = UserMenu(player_dialog.player_turn(), "Place Stone")()
             if move == 'p':
                 passes += 1
+                game.board()
             elif move == 'u':
                 game.rollback(1)
                 game.board()
@@ -29,6 +30,7 @@ class StartGameAction(Action):
                 passes = 0
                 try:
                     game.move(move)
+                    game.board()
                 except ValidationError as error:
                     game.board()
                     View("error.txt").render(error=error)

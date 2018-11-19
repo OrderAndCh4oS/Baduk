@@ -60,7 +60,6 @@ class Game:
             current_player.update_killed_stone_count(self._board.group_collection.get_dead_stones_count())
             self.move_log.add(move)
             self._turn.next_turn()
-            self.board()
 
     def _make_move(self, coordinate, current_player):
         point = Point(coordinate=coordinate)
