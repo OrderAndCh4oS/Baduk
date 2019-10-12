@@ -1,7 +1,7 @@
 from ansi_colours import AnsiColours as Colour
+from terminal_table.table import Table
 
 from baduk.ui.style import Style
-from baduk.ui.table import Table
 from baduk.ui.user_input import UserInput
 from baduk.ui.view import View
 
@@ -43,10 +43,10 @@ class Pagination:
     def paginated_table(self):
         arr_start = (self.page * self.limit) - self.limit
         arr_end = (self.page * self.limit)
-        Table.create_table(
+        print(Table.create(
             self.arr[arr_start:arr_end],
             self.headers
-        )
+        ))
 
     def pagination_text(self):
         text = ""

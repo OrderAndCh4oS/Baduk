@@ -17,7 +17,6 @@ class UserMenu:
         View("menu.txt").render(title=self.title, menu=self._prepare_menu(keys))
         while user_input not in keys:
             user_input = UserInput.get_input('Select an option: ')
-
         return keys[user_input](user_input)
 
     def _prepare_menu(self, keys):

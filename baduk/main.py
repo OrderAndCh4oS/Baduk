@@ -5,7 +5,9 @@ from baduk.ui.user_menu import UserMenu
 class Main:
 
     def __init__(self):
-        UserMenu(MenuActionDialog.main_menu())()
+        while True:
+            if UserMenu(MenuActionDialog.main_menu())() == 'q':
+                break
 
 
 if __name__ == '__main__':

@@ -37,6 +37,8 @@ class LoadSGFAction(Action):
             sgfs.extend([[i + 1, file_name] for i, file_name in enumerate(file_names)])
             break
         sgf = Pagination(sgfs, ['key', 'files'])()
+        if not sgf:
+            return True
 
         moves = MovesFromSGF('../sgf/' + sgf[1]).get_as_korschelt()
         game = Game(19)
