@@ -1,0 +1,2 @@
+ansi-colours==0.2.6
+text-template==0.1.4
