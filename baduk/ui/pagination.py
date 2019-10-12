@@ -21,8 +21,8 @@ class Pagination:
     def menu(self):
         result = False
         while not result:
-            self.paginated_table()
-            self.pagination_text()
+            View().render(text=self.paginated_table())
+            View().render(text=self.pagination_text())
             user_input = UserInput.get_input('\nEnter a %s, use %s and %s to navigate, or %s to go back: ' % (
                 Colour.green("'number'"),
                 Colour.green("<"),
@@ -43,21 +43,23 @@ class Pagination:
     def paginated_table(self):
         arr_start = (self.page * self.limit) - self.limit
         arr_end = (self.page * self.limit)
-        print(Table.create(
+        return Table.create(
             self.arr[arr_start:arr_end],
             self.headers
-        ))
+        )
 
     def pagination_text(self):
         text = ""
         if self.page > 1:
-            text += "%s previous | " % Colour.green('<')
+            text += "< previous | "
         text += "page %d" % self.page
         if self.page * self.limit < self.total:
-            text += " | next %s" % Colour.green('>')
+            text += " | next >"
         output = Style.create_underline(text)
-        output += text
+        output += "\n%s\n" % text
         output += Style.create_underline(text)
+
+        return output
 
     def should_change_page(self, user_input):
         return user_input is '<' or user_input is '>'

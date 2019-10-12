@@ -47,7 +47,7 @@ class LoadSGFAction(Action):
         while index < len(moves):
             user_input = ''
             while user_input not in ['<<', '<', '>', '>>', 'b']:
-                user_input = UserInput.get_input('\n%s | %s | %s | %s\n%s Back' % (
+                user_input = UserInput.get_input('\n%s | %s | %s | %s\n%s Back\n' % (
                     Colour.green("<<"),
                     Colour.green("<"),
                     Colour.green(">"),
@@ -76,5 +76,7 @@ class LoadSGFAction(Action):
                 rollback(game, 10)
                 print("Turn: ", index + 1)
                 continue
+            elif user_input == 'b':
+                break
             game.board()
         game.reset()
