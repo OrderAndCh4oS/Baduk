@@ -1,0 +1,52 @@
+[[package]]
+category = "main"
+description = "Library of static methods for colouring text in terminal output"
+name = "ansi-colours"
+optional = false
+python-versions = "*"
+version = "0.2.6"
+
+[[package]]
+category = "main"
+description = "Print headers and rows of data in terminal"
+name = "terminal-table"
+optional = false
+python-versions = ">=3.5, <4"
+version = "0.3.1"
+
+[package.dependencies]
+ansi-colours = "*"
+
+[package.extras]
+dev = ["check-manifest"]
+test = ["coverage"]
+
+[[package]]
+category = "main"
+description = "Very simple text templating view for Python"
+name = "text-template"
+optional = false
+python-versions = "*"
+version = "0.1.4"
+
+[package.dependencies]
+ansi-colours = "*"
+
+[metadata]
+content-hash = "b348ae0006b8230d8635ec8ec78a280bb9f76bd6f3892d238023f93af3e4c809"
+lock-version = "1.1"
+python-versions = "^3.7"
+
+[metadata.files]
+ansi-colours = [
+    {file = "ansi_colours-0.2.6-py2.py3-none-any.whl", hash = "sha256:f24645819f25ba58f8dba420b65eba49e6c6b5965143198d400268d54c501a41"},
+    {file = "ansi_colours-0.2.6.tar.gz", hash = "sha256:5a4ebabaa89f91d67491ccdebf74574bbb3ad38a27dc950321853dba6a808fa7"},
+]
+terminal-table = [
+    {file = "terminal_table-0.3.1-py2.py3-none-any.whl", hash = "sha256:c961fb06cb4776ba3bb7b68ef5b7b707a57e50d7229c814f3d44b6e810f57014"},
+    {file = "terminal_table-0.3.1.tar.gz", hash = "sha256:c91face76bbac9d69f0e9fb65d2f1a97dc6dba349af5ee63ca46171078d6aacb"},
+]
+text-template = [
+    {file = "text_template-0.1.4-py2.py3-none-any.whl", hash = "sha256:620470cdd55b40af932d48d132ed7500aea81c8ff940bf61fafbc3fbadade3b3"},
+    {file = "text_template-0.1.4.tar.gz", hash = "sha256:287e13261e15f9c0ed2f157343f4d5ece48a1a15d2f071348f387af9b6b761ea"},
+]
