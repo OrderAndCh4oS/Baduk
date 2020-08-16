@@ -62,10 +62,10 @@ class Pagination:
         return output
 
     def should_change_page(self, user_input):
-        return user_input is '<' or user_input is '>'
+        return user_input == '<' or user_input == '>'
 
     def change_page(self, user_input):
-        if self.page is not 1 and user_input is '<':
+        if self.page != 1 and user_input == '<':
             self.page -= 1
-        elif self.page * self.limit < self.total and user_input is '>':
+        elif self.page * self.limit < self.total and user_input == '>':
             self.page += 1
