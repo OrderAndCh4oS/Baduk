@@ -1,9 +1,12 @@
 [tool.poetry]
 name = "baduk"
-version = "1.0.1"
+version = "1.0.3"
 description = "Python Baduk Game"
 authors = ["Sarcoma <sean@orderandchaoscreative.com>"]
 license = "MIT"
+
+[tool.poetry.scripts]
+baduk = "baduk.__main__:main"
 
 [tool.poetry.dependencies]
 python = "^3.6"
