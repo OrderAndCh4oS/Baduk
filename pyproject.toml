@@ -2,11 +2,11 @@
 name = "baduk"
 version = "1.0.0"
 description = "Python Baduk Game"
-authors = ["Sarcoma <sarcoma@live.co.uk>"]
+authors = ["Sarcoma <sean@orderandchaoscreative.com>"]
 license = "MIT"
 
 [tool.poetry.dependencies]
-python = "^3.7"
+python = "^3.6"
 ansi-colours = "0.2.6"
 terminal-table = "0.3.1"
 text-template = "0.1.4"
