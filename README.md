@@ -1,3 +1,6 @@
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Run on Repl.it](https://repl.it/badge/github/sarcoma/Baduk)](https://repl.it/github/sarcoma/Baduk)
+
 # Baduk
 Python Go Game
 
