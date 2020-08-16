@@ -1,2 +1,2 @@
 language = "python3"
-run = "python baduk/main.py"
+run = "poetry run baduk"
